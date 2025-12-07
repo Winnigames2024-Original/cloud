@@ -1,5 +1,4 @@
 <html>
-    <!-- Пример кода для баннера согласия на использование cookies, который скрывается при нажатии "OK" -->
     <div id="cookie-banner" style="display: block; position: fixed; bottom: 0; width: 100%; background: #eee; padding: 10px; text-align: center;">
         Мы используем куки для улучшения вашего опыта. [!] <button id="accept-cookies">OK</button>
     </div>
@@ -8,19 +7,13 @@
         const banner = document.getElementById('cookie-banner');
         const acceptButton = document.getElementById('accept-cookies');
     
-        // Проверяем, есть ли уже кука "cookieAccepted"
-        if (document.cookie.includes('cookieAccepted=true')) {
-            banner.style.display = 'none';
-        }
+        // if (document.cookie.includes('cookieAccepted=true')) {
+        //     banner.style.display = 'none';
+        // }
     
-        // При клике на "OK", скрываем баннер и ставим куку
         acceptButton.addEventListener('click', function() {
             banner.style.display = 'none';
-            // Ставим куку на 30 дней
-            let d = new Date();
-            d.setTime(d.getTime() + (30 * 24 * 60 * 60 * 1000));
-            document.cookie = "cookieAccepted=true; expires=" + d.toUTCString() + ";
-
+            document.cookie = "username=JohnDoe";
         }
     </script>
 

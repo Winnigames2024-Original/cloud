@@ -97,7 +97,92 @@ function web_search(string $q): ?string {
     return trim($out);
 }
 
+// Умный текст через Gemini (официальный Google AI). Пишет посты и ответы.
+function gemini_reply(string $prompt, string $system): ?string {
+    if (!defined('GEMINI_KEY') || GEMINI_KEY === '') return null;
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . rawurlencode(GEMINI_KEY);
+    $payload = [
+        'system_instruction' => ['parts' => [['text' => $system]]],
+        'contents' => [['role' => 'user', 'parts' => [['text' => $prompt]]]],
+    ];
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 45,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+    ]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code < 200 || $code >= 300) { error_log("gemini $code: $r"); return null; }
+    $d = json_decode($r, true);
+    return $d['candidates'][0]['content']['parts'][0]['text'] ?? null;
+}
+
+// Только владелец может постить в ВК — защита от флуда.
+function is_owner(array $u): bool {
+    if (mb_strtolower($u['nick']) === 'winnigames2024') return true;
+    return defined('OWNER_EMAIL') && OWNER_EMAIL !== '' && $u['email'] === OWNER_EMAIL;
+}
+
+function vk_request(string $q): bool {
+    return (bool)preg_match('~\b(вк|вконтакте|vk)\b~ui', $q)
+        && (bool)preg_match('~(выложи|запости|опубликуй|постни|пост)~ui', $q);
+}
+
+function vk_call(string $method, array $params) {
+    $params['access_token'] = VK_TOKEN;
+    $params['v'] = '5.199';
+    $ch = curl_init('https://api.vk.com/method/' . $method);
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30, CURLOPT_POSTFIELDS => http_build_query($params)]);
+    $r = curl_exec($ch); curl_close($ch);
+    return json_decode($r, true);
+}
+
+function vk_post(string $text, ?string $imagePath): ?string {
+    if (!defined('VK_TOKEN') || VK_TOKEN === '' || !defined('VK_GROUP') || VK_GROUP === '') return null;
+    $gid = (int)VK_GROUP;
+    $attach = '';
+    if ($imagePath && is_file($imagePath)) {
+        $up = vk_call('photos.getWallUploadServer', ['group_id' => $gid]);
+        $upurl = $up['response']['upload_url'] ?? null;
+        if ($upurl) {
+            $ch = curl_init($upurl);
+            curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 60, CURLOPT_POSTFIELDS => ['photo' => new CURLFile($imagePath, 'image/png', 'img.png')]]);
+            $res = json_decode(curl_exec($ch), true); curl_close($ch);
+            if (!empty($res['photo'])) {
+                $save = vk_call('photos.saveWallPhoto', ['group_id' => $gid,
+                    'server' => $res['server'], 'photo' => $res['photo'], 'hash' => $res['hash']]);
+                $p = $save['response'][0] ?? null;
+                if ($p) $attach = 'photo' . $p['owner_id'] . '_' . $p['id'];
+            }
+        }
+    }
+    $post = vk_call('wall.post', ['owner_id' => -$gid, 'from_group' => 1,
+        'message' => $text, 'attachments' => $attach]);
+    $pid = $post['response']['post_id'] ?? null;
+    return $pid ? ('https://vk.com/wall-' . $gid . '_' . $pid) : null;
+}
+
+// Умный мозг Qwen локально.
+function qwen_reply(string $prompt, string $system): ?string {
+    if (!defined('QWEN_URL') || QWEN_URL === '') return null;
+    $ch = curl_init(QWEN_URL . '/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 90,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt, 'system' => $system], JSON_UNESCAPED_UNICODE),
+    ]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['text'])) return $d['text']; }
+    return null;
+}
+
 function ai_reply(string $prompt, string $system): string {
+    $g = gemini_reply($prompt, $system);
+    if ($g !== null) return $g;
+    $q = qwen_reply($prompt, $system);
+    if ($q !== null) return $q;
     $ch = curl_init(MODEL_URL . '/generate');
     curl_setopt_array($ch, [
         CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40,
@@ -180,9 +265,26 @@ switch ($action) {
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
        ->execute([$me['id'], $chat, $text]);
     $umid = (int)$db->lastInsertId();
-    // 0) просьба нарисовать, 1) Википедия, 2) Google (вопросы), 3) своя модель
     $dp = draw_prompt($text);
-    if ($dp !== null) {
+    $wantVK = vk_request($text) && is_owner($me);
+
+    if ($dp !== null && $wantVK) {
+        // нарисовать + подпись + выложить в ВК
+        $url = gen_image($dp);
+        $caption = ai_reply('Короткий живой пост для ВКонтакте к картинке по теме: ' . $dp,
+            'Ты пишешь короткие посты для соцсети ВКонтакте на русском, с уместными эмодзи.');
+        $link = $url ? vk_post($caption, ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . $url) : null;
+        $reply = $url ? '[img]' . $url : 'Не нарисовалось.';
+        $reply .= $link ? "\n\n" . $caption . "\n\nОпубликовано в ВК: " . $link
+                        : "\n\n(в ВК выложить не вышло — проверь токен и ID группы)";
+    } elseif ($wantVK) {
+        // текстовый пост в ВК
+        $caption = ai_reply('Напиши пост для ВКонтакте: ' . $text,
+            'Ты пишешь живые посты для ВКонтакте на русском.');
+        $link = vk_post($caption, null);
+        $reply = $link ? ($caption . "\n\nОпубликовано в ВК: " . $link)
+                       : "Не вышло выложить в ВК — проверь токен и ID группы.";
+    } elseif ($dp !== null) {
         $url = gen_image($dp);
         $reply = $url ? '[img]' . $url : 'Не получилось нарисовать — генератор картинок ещё не запущен.';
     } else {

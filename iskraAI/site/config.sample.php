@@ -14,3 +14,8 @@ define('MODEL_URL', 'http://127.0.0.1:2446');
 define('GOOGLE_CSE_CX', '');   // ID поисковика Programmable Search
 define('GOOGLE_API_KEY', '');  // ключ API вида AIza...
 define('IMAGE_URL', 'http://127.0.0.1:2447');  // локальный генератор картинок
+define('QWEN_URL', 'http://127.0.0.1:2448');  // локальный умный мозг (Qwen) — пишет тексты и посты
+define('GEMINI_KEY', '');   // (необязательно) Gemini вместо Qwen, AIza... с aistudio.google.com
+define('VK_TOKEN', '');      // токен сообщества ВК
+define('VK_GROUP', '');      // ID группы ВК (число)
+define('OWNER_EMAIL', '');   // чей аккаунт может постить в ВК (твой e-mail)

@@ -19,13 +19,23 @@ MAX_CORPUS_MB = 500          # не даём корпусу расти беск�
 
 
 def fetch(n):
-    r = requests.get(API, timeout=40, headers={"User-Agent": "IskraBot/1.0"}, params={
-        "action": "query", "format": "json", "generator": "random",
-        "grnnamespace": 0, "grnlimit": n, "prop": "extracts",
-        "explaintext": 1, "exlimit": "max",
-    })
-    pages = r.json().get("query", {}).get("pages", {})
-    return [p.get("extract", "") for p in pages.values() if len(p.get("extract", "")) > 200]
+    # Википедия отдаёт полный текст только по одной статье за запрос,
+    # поэтому делаем n отдельных запросов и набираем n полных статей.
+    texts = []
+    for _ in range(n):
+        try:
+            r = requests.get(API, timeout=40, headers={"User-Agent": "IskraBot/1.0"}, params={
+                "action": "query", "format": "json", "generator": "random",
+                "grnnamespace": 0, "grnlimit": 1, "prop": "extracts", "explaintext": 1,
+            })
+            for p in r.json().get("query", {}).get("pages", {}).values():
+                ex = p.get("extract", "")
+                if len(ex) > 200:
+                    texts.append(ex)
+        except Exception as e:
+            print("ошибка запроса:", e, flush=True)
+        time.sleep(0.3)
+    return texts
 
 
 def trim_corpus():

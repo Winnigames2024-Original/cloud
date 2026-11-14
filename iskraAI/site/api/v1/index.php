@@ -50,6 +50,31 @@ function kb_lookup(string $q): ?string {
     return null;
 }
 
+function looks_like_question(string $q): bool {
+    if (mb_strpos($q, '?') !== false) return true;
+    return (bool)preg_match('~^\s*(как|почему|что|кто|где|когда|зачем|сколько|какой|какая|какие|можно\s+ли)\b~ui', $q);
+}
+
+// Поиск по всему интернету через официальный Google Custom Search API.
+function web_search(string $q): ?string {
+    if (!defined('GOOGLE_API_KEY') || GOOGLE_API_KEY === '' ||
+        !defined('GOOGLE_CSE_CX')  || GOOGLE_CSE_CX  === '') return null;
+    $url = 'https://www.googleapis.com/customsearch/v1?hl=ru&num=3'
+         . '&key=' . rawurlencode(GOOGLE_API_KEY)
+         . '&cx='  . rawurlencode(GOOGLE_CSE_CX)
+         . '&q='   . rawurlencode($q);
+    $d = kb_fetch_json($url);
+    $items = $d['items'] ?? [];
+    if (!$items) return null;
+    $out = "Вот что нашлось в интернете:\n\n";
+    foreach (array_slice($items, 0, 3) as $it) {
+        $out .= "• " . ($it['title'] ?? '') . "\n"
+             .  ($it['snippet'] ?? '') . "\n"
+             .  ($it['link'] ?? '') . "\n\n";
+    }
+    return trim($out);
+}
+
 function ai_reply(string $prompt, string $system): string {
     $ch = curl_init(MODEL_URL . '/generate');
     curl_setopt_array($ch, [
@@ -133,8 +158,10 @@ switch ($action) {
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
        ->execute([$me['id'], $chat, $text]);
     $umid = (int)$db->lastInsertId();
-    // сначала пробуем найти ответ в интернете (Википедия), иначе отвечает модель
-    $reply = kb_lookup($text) ?? ai_reply($text, build_system($set));
+    // 1) Википедия (определения), 2) Google (вопросы), 3) своя модель
+    $reply = kb_lookup($text);
+    if ($reply === null && looks_like_question($text)) $reply = web_search($text);
+    if ($reply === null) $reply = ai_reply($text, build_system($set));
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')
        ->execute([$me['id'], $chat, $reply]);
     $mid = (int)$db->lastInsertId();

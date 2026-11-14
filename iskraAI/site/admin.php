@@ -53,6 +53,12 @@ textarea{width:100%;min-height:90px;padding:10px;border-radius:9px;border:1px so
   </div>
 
   <div class="panel">
+    <h2>Производительность</h2>
+    <p class="sub" style="color:var(--dim);font-size:13px;margin:0 0 12px">Освобождает память и перезапускает тяжёлые сервисы (картинки, Qwen), снимая нагрузку с GPU.</p>
+    <button id="antilag" style="width:auto;padding:9px 18px">⚡ Анти-лаг</button>
+  </div>
+
+  <div class="panel">
     <h2>Пользователи</h2>
     <table><thead><tr><th>Имя</th><th>E-mail</th><th>Статус</th><th>Действия</th></tr></thead>
     <tbody id="users"></tbody></table>
@@ -128,6 +134,12 @@ document.getElementById('maint-save').onclick = async () => {
 document.getElementById('sys-save').onclick = async () => {
   await api('admin_sys_set', {prompt: document.getElementById('sys').value});
   alert('Сохранено');
+};
+document.getElementById('antilag').onclick = async () => {
+  const b = document.getElementById('antilag'); b.disabled = true; b.textContent = 'Чищу…';
+  const r = await api('admin_antilag');
+  b.textContent = r.ok ? '✓ Нагрузка снята' : (r.err || 'Ошибка');
+  setTimeout(() => { b.disabled = false; b.textContent = '⚡ Анти-лаг'; }, 2500);
 };
 const rb = document.getElementById('reboot');
 if (rb) rb.onclick = async () => { if(!confirm('Перезагрузить GPU-сервер? Сайт вернётся через 1–2 минуты.'))return; const r=await api('admin_reboot'); alert(r.ok?'Сервер перезагружается…':(r.err||'Ошибка')); };

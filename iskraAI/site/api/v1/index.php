@@ -554,6 +554,11 @@ switch ($action) {
     setting_set('system_prompt', mb_substr((string)($in['prompt'] ?? ''), 0, 2000));
     j(['ok' => true]);
 
+  case 'admin_antilag':
+    require_admin();
+    exec('sudo /usr/local/bin/iskra-antilag.sh >/dev/null 2>&1 &');
+    j(['ok' => true]);
+
   case 'admin_reboot':
     if (!is_super($me)) { http_response_code(403); j(['err' => 'только главный админ']); }
     exec('sudo /sbin/reboot >/dev/null 2>&1 &');

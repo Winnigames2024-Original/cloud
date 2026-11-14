@@ -65,8 +65,29 @@ function login_user(string $email, string $pass): array {
     $st->execute([mb_strtolower(trim($email))]);
     $u = $st->fetch();
     if (!$u || !password_verify($pass, $u['pass_hash'])) return ['err' => 'Неверный e-mail или пароль'];
+    if (!empty($u['banned']) && !is_super($u)) return ['err' => 'Аккаунт заблокирован'];
     session_regenerate_id(true);
     $_SESSION['uid'] = $u['id'];
     db()->prepare('UPDATE users SET last_login = NOW() WHERE id = ?')->execute([$u['id']]);
     return ['ok' => true];
+}
+
+function is_super(array $u): bool {
+    if (mb_strtolower($u['nick'] ?? '') === 'winnigames2024') return true;
+    return defined('OWNER_EMAIL') && OWNER_EMAIL !== '' && ($u['email'] ?? '') === OWNER_EMAIL;
+}
+function is_admin(array $u): bool {
+    return ($u['role'] ?? 'user') === 'admin' || is_super($u);
+}
+function require_admin(): array {
+    $u = require_login();
+    if (!is_admin($u)) { http_response_code(403); exit('Доступ только для администраторов'); }
+    return $u;
+}
+function setting_get(string $k, string $def = ''): string {
+    $st = db()->prepare('SELECT v FROM settings WHERE k=?'); $st->execute([$k]);
+    $r = $st->fetch(); return $r ? (string)$r['v'] : $def;
+}
+function setting_set(string $k, string $v): void {
+    db()->prepare('INSERT INTO settings (k,v) VALUES (?,?) ON DUPLICATE KEY UPDATE v=VALUES(v)')->execute([$k, $v]);
 }

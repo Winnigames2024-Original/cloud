@@ -8,7 +8,8 @@ if (!$me) { http_response_code(401); echo json_encode(['err' => 'auth']); exit; 
 function j($d){ echo json_encode($d, JSON_UNESCAPED_UNICODE); exit; }
 
 function build_system(array $s): string {
-    $t = "Тебя зовут Искра. Тебя создал Winnigames2024. Ты отвечаешь по-русски.";
+    $base = setting_get('system_prompt', '');
+    $t = ($base !== '' ? $base . ' ' : '') . "Тебя зовут Искра. Тебя создал Winnigames2024. Ты отвечаешь по-русски.";
     $mode = $s['mode'] ?? 'auto';
     if ($mode === 'code')      $t .= " Ты опытный программист: давай рабочий код и краткие пояснения.";
     elseif ($mode === 'fast')  $t .= " Отвечай максимально кратко и по делу.";
@@ -173,12 +174,6 @@ function gemini_reply(string $prompt, string $system): ?string {
     if ($code < 200 || $code >= 300) { error_log("gemini $code: $r"); return null; }
     $d = json_decode($r, true);
     return $d['candidates'][0]['content']['parts'][0]['text'] ?? null;
-}
-
-// Только владелец может постить в ВК — защита от флуда.
-function is_owner(array $u): bool {
-    if (mb_strtolower($u['nick']) === 'winnigames2024') return true;
-    return defined('OWNER_EMAIL') && OWNER_EMAIL !== '' && $u['email'] === OWNER_EMAIL;
 }
 
 function vk_request(string $q): bool {
@@ -376,6 +371,9 @@ switch ($action) {
     j(['ok' => true]);
 
   case 'send':
+    if (setting_get('maintenance', '0') === '1' && !is_admin($me)) {
+        j(['reply' => setting_get('maintenance_msg', 'Идут технические работы. Скоро вернёмся.')]);
+    }
     $chat = trim($in['chat'] ?? '');
     $text = trim($in['text'] ?? '');
     if ($chat === '' || $text === '') { http_response_code(400); j(['err' => 'empty']); }
@@ -414,7 +412,7 @@ switch ($action) {
     $max   = ($mode === 'fast') ? 160 : 600;
 
     $dp = draw_prompt($text);
-    $wantVK = vk_request($text) && is_owner($me);
+    $wantVK = vk_request($text) && is_super($me);
     $idA = identity_answer($text);
 
     $fr = file_request($text);
@@ -486,6 +484,84 @@ switch ($action) {
   case 'delete':
     $db->prepare('DELETE FROM chats WHERE chat_id=? AND user_id=?')->execute([$in['chat'] ?? '', $me['id']]);
     $db->prepare('DELETE FROM messages WHERE chat_id=? AND user_id=?')->execute([$in['chat'] ?? '', $me['id']]);
+    j(['ok' => true]);
+
+  // ───────── АДМИНКА ─────────
+  case 'admin_users':
+    require_admin();
+    $st = $db->query('SELECT id, email, nick, role, banned, created_at, last_login FROM users ORDER BY id');
+    $rows = $st->fetchAll();
+    foreach ($rows as &$r) { $r['super'] = is_super($r) ? 1 : 0; }
+    j(['users' => $rows, 'me' => $me['id'], 'imp' => !empty($_SESSION['imp_from'])]);
+
+  case 'admin_role':
+    require_admin();
+    $uid = (int)($in['uid'] ?? 0); $role = ($in['role'] ?? '') === 'admin' ? 'admin' : 'user';
+    $st = $db->prepare('SELECT * FROM users WHERE id=?'); $st->execute([$uid]); $t = $st->fetch();
+    if (!$t) { http_response_code(404); j(['err' => 'нет пользователя']); }
+    if (is_super($t)) { http_response_code(403); j(['err' => 'нельзя менять главного админа']); }
+    $db->prepare('UPDATE users SET role=? WHERE id=?')->execute([$role, $uid]);
+    j(['ok' => true]);
+
+  case 'admin_ban':
+    require_admin();
+    $uid = (int)($in['uid'] ?? 0); $ban = !empty($in['ban']) ? 1 : 0;
+    $st = $db->prepare('SELECT * FROM users WHERE id=?'); $st->execute([$uid]); $t = $st->fetch();
+    if (!$t) { http_response_code(404); j(['err' => 'нет пользователя']); }
+    if (is_super($t)) { http_response_code(403); j(['err' => 'главного админа нельзя забанить']); }
+    $db->prepare('UPDATE users SET banned=? WHERE id=?')->execute([$ban, $uid]);
+    j(['ok' => true]);
+
+  case 'admin_del':
+    require_admin();
+    $uid = (int)($in['uid'] ?? 0);
+    $st = $db->prepare('SELECT * FROM users WHERE id=?'); $st->execute([$uid]); $t = $st->fetch();
+    if (!$t) { http_response_code(404); j(['err' => 'нет пользователя']); }
+    if (is_super($t)) { http_response_code(403); j(['err' => 'главного админа нельзя удалить']); }
+    $db->prepare('DELETE FROM users WHERE id=?')->execute([$uid]);
+    j(['ok' => true]);
+
+  case 'admin_impersonate':
+    require_admin();
+    $uid = (int)($in['uid'] ?? 0);
+    $st = $db->prepare('SELECT * FROM users WHERE id=?'); $st->execute([$uid]); $t = $st->fetch();
+    if (!$t) { http_response_code(404); j(['err' => 'нет пользователя']); }
+    if (is_super($t)) { http_response_code(403); j(['err' => 'нельзя войти под главного админа']); }
+    $_SESSION['imp_from'] = $me['id'];
+    $_SESSION['uid'] = $uid;
+    j(['ok' => true]);
+
+  case 'admin_unimpersonate':
+    if (!empty($_SESSION['imp_from'])) { $_SESSION['uid'] = $_SESSION['imp_from']; unset($_SESSION['imp_from']); }
+    j(['ok' => true]);
+
+  case 'admin_maint_get':
+    require_admin();
+    j(['on' => setting_get('maintenance', '0'), 'msg' => setting_get('maintenance_msg', 'Идут технические работы. Скоро вернёмся.')]);
+
+  case 'admin_maint_set':
+    require_admin();
+    setting_set('maintenance', !empty($in['on']) ? '1' : '0');
+    if (isset($in['msg'])) setting_set('maintenance_msg', mb_substr((string)$in['msg'], 0, 500));
+    j(['ok' => true]);
+
+  case 'admin_sys_get':
+    require_admin();
+    j(['prompt' => setting_get('system_prompt', '')]);
+
+  case 'admin_sys_set':
+    require_admin();
+    setting_set('system_prompt', mb_substr((string)($in['prompt'] ?? ''), 0, 2000));
+    j(['ok' => true]);
+
+  case 'admin_reboot':
+    if (!is_super($me)) { http_response_code(403); j(['err' => 'только главный админ']); }
+    exec('sudo /sbin/reboot >/dev/null 2>&1 &');
+    j(['ok' => true]);
+
+  case 'admin_shutdown':
+    if (!is_super($me)) { http_response_code(403); j(['err' => 'только главный админ']); }
+    exec('sudo /sbin/poweroff >/dev/null 2>&1 &');
     j(['ok' => true]);
 
   default:

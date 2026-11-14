@@ -13,6 +13,17 @@ if (!$me):
     <?php require __DIR__ . '/inc/footer.php';
     exit;
 endif;
+
+if (setting_get('maintenance', '0') === '1' && !is_admin($me)):
+    $title = 'Технические работы';
+    require __DIR__ . '/inc/header.php'; ?>
+    <div class="hero">
+      <h1>🛠 Технические работы</h1>
+      <p><?= htmlspecialchars(setting_get('maintenance_msg', 'Идут технические работы. Скоро вернёмся.')) ?></p>
+    </div>
+    <?php require __DIR__ . '/inc/footer.php';
+    exit;
+endif;
 ?>
 <!doctype html>
 <html lang="ru">
@@ -20,9 +31,14 @@ endif;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Искра</title>
-<link rel="stylesheet" href="/assets/app.css?v=9">
+<link rel="stylesheet" href="/assets/app.css?v=10">
 </head>
 <body>
+<?php if (!empty($_SESSION['imp_from'])): ?>
+<div class="imp-banner">Вы вошли как <?= htmlspecialchars($me['nick']) ?> (режим проверки) ·
+  <a href="#" onclick="fetch('/api/v1/index.php?action=admin_unimpersonate',{method:'POST'}).then(()=>location.href='/admin.php');return false;">Вернуться в свой аккаунт</a>
+</div>
+<?php endif; ?>
 <div class="app" id="app">
   <aside class="sidebar" id="sidebar">
     <div class="sb-top"><button class="newchat" id="newchat">＋ Новый чат</button></div>
@@ -31,6 +47,7 @@ endif;
       <div class="who"><span class="dot">◆</span> <?= htmlspecialchars($me['nick']) ?></div>
       <div class="who-links">
         <a href="/profile.php">Профиль</a>
+        <?php if (is_admin($me)): ?><a href="/admin.php">Админка</a><?php endif; ?>
         <a href="/logout.php">Выйти</a>
       </div>
     </div>
@@ -121,6 +138,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=9"></script>
+<script src="/assets/app.js?v=10"></script>
 </body>
 </html>

@@ -142,8 +142,9 @@ async function saveCfg(){
   await api('settings_set', {chat:current, persona:cfg.persona, allow_anger:cfg.allow_anger, mode:cfg.mode, model:cfg.model});
 }
 
-async function openChat(id){
+async function openChat(id, push = true){
   current = id;
+  if (push) history.pushState({id}, '', '#' + id);
   if(isMobile()) app.classList.add('nosidebar');
   const d = await api('history&chat='+encodeURIComponent(id));
   msgs.innerHTML='';
@@ -152,13 +153,20 @@ async function openChat(id){
   loadChats();
 }
 
-$('#newchat').onclick = () => {
+function newChat(push = true){
   current = null; pending = []; renderPreviews();
+  if (push) history.pushState({}, '', location.pathname);
   cfg = { persona:'', allow_anger:0, mode:'auto', model:'smart' }; applyCfgToUI();
   msgs.innerHTML = '<div class="empty" id="empty"><div class="spark-big">◆</div><p>Новый чат. Напиши первое сообщение.</p></div>';
   loadChats();
   if(isMobile()) app.classList.add('nosidebar');
-};
+}
+$('#newchat').onclick = () => newChat();
+
+window.addEventListener('popstate', () => {
+  const id = location.hash.slice(1);
+  if (id) openChat(id, false); else newChat(false);
+});
 
 $('#mode').onchange  = () => { cfg.mode  = $('#mode').value;  saveCfg(); };
 $('#model').onchange = () => { cfg.model = $('#model').value; saveCfg(); };
@@ -166,7 +174,7 @@ $('#model').onchange = () => { cfg.model = $('#model').value; saveCfg(); };
 async function send(){
   const text = input.value.trim();
   if(!text && !pending.length) return;
-  if(!current) current = crypto.randomUUID();
+  if(!current){ current = crypto.randomUUID(); history.replaceState({id:current}, '', '#' + current); }
   const files = pending.slice(); pending = []; renderPreviews();
   input.value=''; input.style.height='auto';
   let shown = text;
@@ -219,3 +227,5 @@ $('#s-save').onclick = async () => {
 };
 
 loadChats();
+// открыть чат из адреса при загрузке
+(() => { const id = location.hash.slice(1); if (id) openChat(id, false); })();

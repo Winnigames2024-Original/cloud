@@ -112,3 +112,11 @@ body{background:var(--bg);color:var(--text);
 .share-msgs{flex:1;overflow:visible;padding:24px 16px}
 .share-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dim);padding:60px 20px;text-align:center}
 .share-foot{padding:16px 20px;border-top:1px solid var(--line);color:var(--dim);font-size:13px;text-align:center}
+
+/* перетаскивание и просмотр картинок */
+.composer.dragover{outline:2px dashed var(--accent);outline-offset:-6px}
+.genimg{cursor:zoom-in}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:100;cursor:zoom-out;padding:24px}
+.lightbox[hidden]{display:none}
+.lightbox img{max-width:95%;max-height:95%;border-radius:10px}
+.prev img{cursor:zoom-in}

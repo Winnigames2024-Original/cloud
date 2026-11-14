@@ -67,9 +67,8 @@ async function delMsg(row){
 }
 
 // ── вложения ──
-$('#attach').onclick = () => $('#file').click();
-$('#file').onchange = async e => {
-  for (const file of e.target.files) {
+async function uploadFiles(fileList){
+  for (const file of fileList) {
     const fd = new FormData(); fd.append('file', file);
     try {
       const r = await fetch('/api/v1/index.php?action=upload', {method:'POST', body:fd}).then(r=>r.json());
@@ -77,19 +76,40 @@ $('#file').onchange = async e => {
       else alert(r.err || 'Не удалось загрузить файл');
     } catch(_) { alert('Ошибка загрузки'); }
   }
-  e.target.value = '';
   renderPreviews();
-};
+}
+$('#attach').onclick = () => $('#file').click();
+$('#file').onchange = async e => { await uploadFiles(e.target.files); e.target.value = ''; };
+
 function renderPreviews(){
   const box = $('#previews'); box.innerHTML = '';
   pending.forEach((f, i) => {
     const el = document.createElement('div'); el.className = 'prev';
-    el.innerHTML = f.img ? '<img src="'+esc(f.url)+'">' : '<span class="pf">📎 '+esc(f.name)+'</span>';
+    if (f.img) { const im = document.createElement('img'); im.src = f.url; im.onclick = () => openLightbox(f.url); el.appendChild(im); }
+    else { const s = document.createElement('span'); s.className = 'pf'; s.textContent = '📎 ' + f.name; el.appendChild(s); }
     const x = document.createElement('button'); x.textContent='×';
     x.onclick = () => { pending.splice(i,1); renderPreviews(); };
     el.appendChild(x); box.appendChild(el);
   });
 }
+
+// ── перетаскивание файлов в низ ──
+const dropArea = document.querySelector('.composer');
+let dragDepth = 0;
+window.addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; dropArea.classList.add('dragover'); });
+window.addEventListener('dragover', e => { e.preventDefault(); });
+window.addEventListener('dragleave', e => { e.preventDefault(); if (--dragDepth <= 0) dropArea.classList.remove('dragover'); });
+window.addEventListener('drop', async e => {
+  e.preventDefault(); dragDepth = 0; dropArea.classList.remove('dragover');
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) await uploadFiles(e.dataTransfer.files);
+});
+
+// ── просмотр картинок (лайтбокс) ──
+const lb = document.createElement('div'); lb.className = 'lightbox'; lb.hidden = true;
+lb.innerHTML = '<img alt="">'; document.body.appendChild(lb);
+lb.onclick = () => { lb.hidden = true; };
+function openLightbox(src){ lb.querySelector('img').src = src; lb.hidden = false; }
+msgs.addEventListener('click', e => { if (e.target.classList.contains('genimg')) openLightbox(e.target.src); });
 
 async function loadChats(){
   const d = await api('chats');

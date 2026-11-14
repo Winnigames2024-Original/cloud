@@ -67,12 +67,24 @@ body{background:var(--bg);color:var(--text);
 .msg-actions button{width:auto;margin:0;padding:2px 7px;background:none;border:0;color:var(--dim);font-size:15px;line-height:1;cursor:pointer;border-radius:6px}
 .msg-actions button:hover{color:var(--accent);background:var(--panel2)}
 
-.composer{display:flex;gap:10px;align-items:flex-end;padding:14px 16px;border-top:1px solid var(--line);background:var(--bg)}
-.composer textarea{flex:1;max-height:180px;resize:none;padding:12px 14px;border-radius:12px;
-  border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:15px}
-.composer textarea:focus{outline:none;border-color:var(--accent)}
-.composer button{width:44px;height:44px;flex-shrink:0;border:0;border-radius:12px;background:var(--accent);color:var(--onacc);font-size:20px;cursor:pointer}
-.composer button:disabled{opacity:.4;cursor:default}
+.composer{padding:12px 16px;border-top:1px solid var(--line);background:var(--bg)}
+.composer-main{max-width:820px;margin:0 auto;border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:8px 10px}
+.composer-main textarea{width:100%;max-height:180px;resize:none;padding:6px 6px;border:0;background:transparent;color:var(--text);font:inherit;font-size:15px}
+.composer-main textarea:focus{outline:none}
+.composer-tools{display:flex;align-items:center;gap:8px;padding-top:4px}
+.composer-tools .spacer{flex:1}
+.tool{width:34px;height:34px;border:0;border-radius:9px;background:var(--panel2);color:var(--dim);font-size:16px;cursor:pointer}
+.tool:hover{color:var(--accent)}
+.sendbtn{width:36px;height:36px;border:0;border-radius:10px;background:var(--accent);color:var(--onacc);font-size:18px;cursor:pointer}
+.sendbtn:disabled{opacity:.4;cursor:default}
+.attach-previews{max-width:820px;margin:0 auto 8px;display:flex;flex-wrap:wrap;gap:8px}
+.attach-previews:empty{margin:0}
+.prev{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel2)}
+.prev img{display:block;width:60px;height:60px;object-fit:cover}
+.prev .pf{display:inline-block;padding:10px 12px;font-size:13px;color:var(--text);max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.prev button{position:absolute;top:2px;right:2px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:1;cursor:pointer}
+.filechip{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;margin-top:4px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);text-decoration:none;font-size:14px}
+.filechip:hover{border-color:var(--accent)}
 
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
 .modal[hidden]{display:none}
@@ -91,3 +103,12 @@ body{background:var(--bg);color:var(--text);
   .app:not(.nosidebar) .main{filter:brightness(.6)}
   .barsel{font-size:12px;padding:5px 6px}
 }
+
+/* страница «поделиться» */
+.share-wrap{max-width:820px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.share-head{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.share-head .logo{font-weight:600;color:var(--text);text-decoration:none}
+.share-title{color:var(--dim);font-size:15px}
+.share-msgs{flex:1;overflow:visible;padding:24px 16px}
+.share-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dim);padding:60px 20px;text-align:center}
+.share-foot{padding:16px 20px;border-top:1px solid var(--line);color:var(--dim);font-size:13px;text-align:center}

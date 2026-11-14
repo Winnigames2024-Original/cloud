@@ -230,6 +230,31 @@ switch ($action) {
     $st->execute([$me['id']]);
     j(['chats' => $st->fetchAll()]);
 
+  case 'upload':
+    if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) { http_response_code(400); j(['err' => 'upload']); }
+    $f = $_FILES['file'];
+    if ($f['size'] > 8 * 1024 * 1024) { http_response_code(400); j(['err' => 'Файл больше 8 МБ']); }
+    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+    $okImg = ['jpg','jpeg','png','gif','webp'];
+    $okDoc = ['txt','md','csv','log','json','pdf'];
+    if (!in_array($ext, array_merge($okImg, $okDoc), true)) { http_response_code(400); j(['err' => 'Такой тип файла нельзя']); }
+    $dir = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . '/uploads/u' . $me['id'];
+    @mkdir($dir, 0775, true);
+    $name = bin2hex(random_bytes(8)) . '.' . $ext;
+    if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) { http_response_code(500); j(['err' => 'save']); }
+    j(['url' => '/uploads/u' . $me['id'] . '/' . $name, 'name' => $f['name'], 'img' => in_array($ext, $okImg, true)]);
+
+  case 'visibility':
+    $vis = ($in['visibility'] ?? 'private') === 'public' ? 'public' : 'private';
+    $db->prepare('UPDATE chats SET visibility=? WHERE chat_id=? AND user_id=?')
+       ->execute([$vis, $in['chat'] ?? '', $me['id']]);
+    j(['ok' => true, 'visibility' => $vis]);
+
+  case 'vis_get':
+    $st = $db->prepare('SELECT visibility FROM chats WHERE chat_id=? AND user_id=?');
+    $st->execute([$_GET['chat'] ?? '', $me['id']]);
+    j(['visibility' => ($st->fetch()['visibility'] ?? 'private')]);
+
   case 'history':
     $st = $db->prepare('SELECT id, role, content FROM messages WHERE user_id=? AND chat_id=? ORDER BY id');
     $st->execute([$me['id'], $_GET['chat'] ?? '']);
@@ -288,8 +313,24 @@ switch ($action) {
            ->execute([$chat, $me['id'], mb_substr($text, 0, 60)]);
         $set = ['allow_anger' => 0, 'persona' => '', 'mode' => 'auto', 'model' => 'smart'];
     }
+    // вложения: показываем в сообщении, текстовые файлы подкладываем модели
+    $files = is_array($in['files'] ?? null) ? $in['files'] : [];
+    $display = $text;
+    $modelExtra = '';
+    foreach ($files as $fl) {
+        $url = $fl['url'] ?? ''; if ($url === '') continue;
+        $nm = str_replace(['|', "\n"], ' ', $fl['name'] ?? 'файл');
+        $display .= "\n" . (!empty($fl['img']) ? '[img]' . $url : '[file]' . $nm . '|' . $url);
+        if (empty($fl['img']) && preg_match('~\.(txt|md|csv|log|json)$~i', $url)) {
+            $path = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . $url;
+            if (is_file($path) && filesize($path) < 100000) {
+                $modelExtra .= "\n\nСодержимое файла " . $nm . ":\n" . mb_substr(file_get_contents($path), 0, 8000);
+            }
+        }
+    }
+
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
-       ->execute([$me['id'], $chat, $text]);
+       ->execute([$me['id'], $chat, $display]);
     $umid = (int)$db->lastInsertId();
 
     $mode  = $set['mode'] ?? 'auto';
@@ -323,9 +364,10 @@ switch ($action) {
         $reply = kb_lookup($text);
         if ($reply === null && looks_like_question($text)) $reply = web_search($text);
         if ($reply === null) {
+            $prompt = $text . $modelExtra;
             $reply = ($model === 'own')
-                ? own_reply($text, build_system($set), $max)
-                : ai_reply($text, build_system($set), $max);
+                ? own_reply($prompt, build_system($set), $max)
+                : ai_reply($prompt, build_system($set), $max);
         }
     }
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')

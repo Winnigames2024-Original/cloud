@@ -123,6 +123,7 @@ server {
     location / { try_files \$uri \$uri/ /index.php?\$query_string; }
     location ~ \.php\$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:$sock; }
     location /api/ { try_files \$uri \$uri/ /api/v1/index.php?\$query_string; }
+    location ~ ^/chats/([A-Za-z0-9-]+) { rewrite ^ /share.php?c=\$1 last; }
     location ~ /\.(?!well-known) { deny all; }
     location ^~ /inc/    { deny all; }
     location ^~ /vendor/ { deny all; }

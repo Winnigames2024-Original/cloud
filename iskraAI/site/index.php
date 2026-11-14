@@ -39,16 +39,8 @@ endif;
   <main class="main">
     <header class="bar">
       <button class="burger" id="burger" aria-label="Меню">≡</button>
-      <select id="mode" class="barsel" title="Режим">
-        <option value="auto">АВТО</option>
-        <option value="normal">Обычный</option>
-        <option value="code">Экстра · код</option>
-        <option value="fast">Быстрый</option>
-      </select>
-      <select id="model" class="barsel" title="Модель">
-        <option value="smart">Искра Про</option>
-        <option value="own">Искра · своя</option>
-      </select>
+      <span class="bar-title">Искра</span>
+      <button class="icon" id="share" title="Поделиться чатом">↗</button>
       <button class="icon" id="theme" title="Тема">◐</button>
       <button class="icon" id="gear" title="Характер Искры в этом чате">⚙</button>
     </header>
@@ -61,8 +53,26 @@ endif;
     </div>
 
     <div class="composer">
-      <textarea id="input" rows="1" placeholder="Сообщение Искре…"></textarea>
-      <button id="send" aria-label="Отправить">↑</button>
+      <div class="attach-previews" id="previews"></div>
+      <div class="composer-main">
+        <textarea id="input" rows="1" placeholder="Сообщение Искре…"></textarea>
+        <div class="composer-tools">
+          <button class="tool" id="attach" title="Прикрепить файл или картинку">📎</button>
+          <input type="file" id="file" multiple accept="image/*,.txt,.md,.csv,.log,.json,.pdf" hidden>
+          <select id="mode" class="barsel" title="Режим">
+            <option value="auto">АВТО</option>
+            <option value="normal">Обычный</option>
+            <option value="code">Экстра · код</option>
+            <option value="fast">Быстрый</option>
+          </select>
+          <select id="model" class="barsel" title="Модель">
+            <option value="smart">Искра Про</option>
+            <option value="own">Искра · своя</option>
+          </select>
+          <span class="spacer"></span>
+          <button id="send" class="sendbtn" aria-label="Отправить">↑</button>
+        </div>
+      </div>
     </div>
   </main>
 </div>

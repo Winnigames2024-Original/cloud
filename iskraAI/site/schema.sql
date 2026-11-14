@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS chats (
   persona     VARCHAR(500) NOT NULL DEFAULT '',
   mode        VARCHAR(16) NOT NULL DEFAULT 'auto',
   model       VARCHAR(16) NOT NULL DEFAULT 'smart',
+  visibility  VARCHAR(16) NOT NULL DEFAULT 'private',
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (user_id, updated_at),
@@ -70,3 +71,4 @@ CREATE TABLE IF NOT EXISTS rate_limit (
 -- Догоняющие колонки для уже существующих баз (безопасно повторно):
 ALTER TABLE chats ADD COLUMN IF NOT EXISTS mode  VARCHAR(16) NOT NULL DEFAULT 'auto';
 ALTER TABLE chats ADD COLUMN IF NOT EXISTS model VARCHAR(16) NOT NULL DEFAULT 'smart';
+ALTER TABLE chats ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'private';

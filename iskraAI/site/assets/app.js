@@ -11,14 +11,40 @@ $('#burger').onclick = () => app.classList.toggle('nosidebar');
 
 function esc(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
 
-function addMsg(role, text){
+function addMsg(role, text, id){
   $('#empty')?.remove();
   const row = document.createElement('div');
   row.className = 'row ' + role;
+  if (id) row.dataset.id = id;
   row.innerHTML = '<div class="bubble">' + esc(text) + '</div>';
+  const act = document.createElement('div');
+  act.className = 'msg-actions';
+  if (role === 'user') {
+    const e = document.createElement('button'); e.textContent = '✎';
+    e.title = 'Изменить'; e.onclick = () => editMsg(row); act.appendChild(e);
+  }
+  const d = document.createElement('button'); d.textContent = '×';
+  d.title = 'Удалить'; d.onclick = () => delMsg(row); act.appendChild(d);
+  row.appendChild(act);
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
   return row;
+}
+
+async function editMsg(row){
+  const id = row.dataset.id; if (!id) return;
+  const cur = row.querySelector('.bubble').textContent;
+  const nv = prompt('Изменить сообщение:', cur);
+  if (nv === null || !nv.trim()) return;
+  await api('msg_edit', {id, text: nv});
+  row.querySelector('.bubble').textContent = nv;
+}
+
+async function delMsg(row){
+  const id = row.dataset.id;
+  if (!confirm('Удалить это сообщение?')) return;
+  if (id) await api('msg_delete', {id});
+  row.remove();
 }
 
 async function loadChats(){
@@ -27,11 +53,16 @@ async function loadChats(){
   (d.chats||[]).forEach(c => {
     const el = document.createElement('div');
     el.className = 'chat-item' + (c.chat_id===current?' active':'');
-    el.innerHTML = '<span class="t">'+esc(c.title)+'</span><span class="del">×</span>';
+    el.innerHTML = '<span class="t">'+esc(c.title)+'</span><span class="ren">✎</span><span class="del">×</span>';
     el.querySelector('.t').onclick = () => openChat(c.chat_id);
+    el.querySelector('.ren').onclick = async e => { e.stopPropagation();
+      const nv = prompt('Название чата:', c.title);
+      if (nv && nv.trim()) { await api('chat_rename',{chat:c.chat_id, title:nv}); loadChats(); }
+    };
     el.querySelector('.del').onclick = async e => { e.stopPropagation();
+      if (!confirm('Удалить чат целиком?')) return;
       await api('delete',{chat:c.chat_id});
-      if(current===c.chat_id){ current=null; msgs.innerHTML=''; }
+      if (current===c.chat_id){ current=null; msgs.innerHTML=''; }
       loadChats();
     };
     list.appendChild(el);
@@ -43,7 +74,7 @@ async function openChat(id){
   if(isMobile()) app.classList.add('nosidebar');
   const d = await api('history&chat='+encodeURIComponent(id));
   msgs.innerHTML='';
-  (d.messages||[]).forEach(m => addMsg(m.role, m.content));
+  (d.messages||[]).forEach(m => addMsg(m.role, m.content, m.id));
   loadChats();
 }
 
@@ -59,11 +90,13 @@ async function send(){
   if(!text) return;
   if(!current) current = crypto.randomUUID();
   input.value=''; input.style.height='auto';
-  addMsg('user', text);
+  const urow = addMsg('user', text);
   const typing = addMsg('ai', '…');
   $('#send').disabled = true;
   try {
     const d = await api('send', {chat:current, text});
+    if (d.umid) urow.dataset.id = d.umid;
+    if (d.id) typing.dataset.id = d.id;
     typing.querySelector('.bubble').textContent = d.reply || 'Ошибка ответа';
   } catch(e){ typing.querySelector('.bubble').textContent = 'Ошибка сети'; }
   $('#send').disabled = false;

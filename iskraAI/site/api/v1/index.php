@@ -41,9 +41,31 @@ switch ($action) {
     j(['chats' => $st->fetchAll()]);
 
   case 'history':
-    $st = $db->prepare('SELECT role, content FROM messages WHERE user_id=? AND chat_id=? ORDER BY id');
+    $st = $db->prepare('SELECT id, role, content FROM messages WHERE user_id=? AND chat_id=? ORDER BY id');
     $st->execute([$me['id'], $_GET['chat'] ?? '']);
     j(['messages' => $st->fetchAll()]);
+
+  case 'msg_edit':
+    $id = (int)($in['id'] ?? 0);
+    $text = trim($in['text'] ?? '');
+    if ($id < 1 || $text === '') { http_response_code(400); j(['err' => 'bad']); }
+    if (mb_strlen($text) > 4000) $text = mb_substr($text, 0, 4000);
+    $db->prepare('UPDATE messages SET content=? WHERE id=? AND user_id=? AND role="user"')
+       ->execute([$text, $id, $me['id']]);
+    j(['ok' => true]);
+
+  case 'msg_delete':
+    $db->prepare('DELETE FROM messages WHERE id=? AND user_id=?')
+       ->execute([(int)($in['id'] ?? 0), $me['id']]);
+    j(['ok' => true]);
+
+  case 'chat_rename':
+    $chat  = trim($in['chat'] ?? '');
+    $title = mb_substr(trim($in['title'] ?? ''), 0, 120);
+    if ($chat === '' || $title === '') { http_response_code(400); j(['err' => 'bad']); }
+    $db->prepare('UPDATE chats SET title=? WHERE chat_id=? AND user_id=?')
+       ->execute([$title, $chat, $me['id']]);
+    j(['ok' => true]);
 
   case 'settings_get':
     $st = $db->prepare('SELECT allow_anger, persona FROM chats WHERE chat_id=? AND user_id=?');
@@ -76,12 +98,13 @@ switch ($action) {
     }
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
        ->execute([$me['id'], $chat, $text]);
+    $umid = (int)$db->lastInsertId();
     $reply = ai_reply($text, build_system($set));
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')
        ->execute([$me['id'], $chat, $reply]);
     $mid = (int)$db->lastInsertId();
     $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$chat]);
-    j(['reply' => $reply, 'id' => $mid]);
+    j(['umid' => $umid, 'reply' => $reply, 'id' => $mid]);
 
   case 'delete':
     $db->prepare('DELETE FROM chats WHERE chat_id=? AND user_id=?')->execute([$in['chat'] ?? '', $me['id']]);

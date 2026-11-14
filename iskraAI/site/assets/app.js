@@ -212,6 +212,12 @@ $('#share').onclick = async () => {
   catch(_) { prompt('Чат публичный. Скопируй ссылку:', link); }
 };
 
+// ── файлы чата (эксплорер) ──
+$('#files').onclick = () => {
+  if (!current) { alert('Сначала напиши что-нибудь в чате.'); return; }
+  window.open('http://' + location.hostname + ':23456/' + current, '_blank');
+};
+
 // ── характер ──
 $('#gear').onclick = () => {
   $('#s-persona').value = cfg.persona || '';

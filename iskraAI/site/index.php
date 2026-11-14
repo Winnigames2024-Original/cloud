@@ -20,7 +20,7 @@ endif;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Искра</title>
-<link rel="stylesheet" href="/assets/app.css?v=5">
+<link rel="stylesheet" href="/assets/app.css?v=6">
 </head>
 <body>
 <div class="app" id="app">
@@ -40,6 +40,7 @@ endif;
     <header class="bar">
       <button class="burger" id="burger" aria-label="Меню">≡</button>
       <span class="bar-title">Искра</span>
+      <button class="icon" id="files" title="Файлы этого чата">📁</button>
       <button class="icon" id="share" title="Поделиться чатом">↗</button>
       <button class="icon" id="theme" title="Тема">◐</button>
       <button class="icon" id="gear" title="Характер Искры в этом чате">⚙</button>
@@ -90,6 +91,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=5"></script>
+<script src="/assets/app.js?v=6"></script>
 </body>
 </html>

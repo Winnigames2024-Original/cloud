@@ -50,6 +50,28 @@ function kb_lookup(string $q): ?string {
     return null;
 }
 
+// Распознаёт просьбу нарисовать и достаёт промпт после глагола.
+function draw_prompt(string $q): ?string {
+    if (preg_match('~^\s*(?:нарисуй|сгенерируй|создай|generate|draw)\b\s*(?:мне\s+)?(?:картинк\w+|изображени\w+|рисунок|фото|арт)?\s*(?:с\s+|про\s+)?(.+)~ui', $q, $m)) {
+        $p = trim($m[1], " \t\n:,.\"'«»");
+        return mb_strlen($p) >= 2 ? $p : null;
+    }
+    return null;
+}
+
+function gen_image(string $prompt): ?string {
+    if (!defined('IMAGE_URL') || IMAGE_URL === '') return null;
+    $ch = curl_init(IMAGE_URL . '/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 180,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt], JSON_UNESCAPED_UNICODE),
+    ]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['url'])) return $d['url']; }
+    return null;
+}
+
 function looks_like_question(string $q): bool {
     if (mb_strpos($q, '?') !== false) return true;
     return (bool)preg_match('~^\s*(как|почему|что|кто|где|когда|зачем|сколько|какой|какая|какие|можно\s+ли)\b~ui', $q);
@@ -158,10 +180,16 @@ switch ($action) {
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
        ->execute([$me['id'], $chat, $text]);
     $umid = (int)$db->lastInsertId();
-    // 1) Википедия (определения), 2) Google (вопросы), 3) своя модель
-    $reply = kb_lookup($text);
-    if ($reply === null && looks_like_question($text)) $reply = web_search($text);
-    if ($reply === null) $reply = ai_reply($text, build_system($set));
+    // 0) просьба нарисовать, 1) Википедия, 2) Google (вопросы), 3) своя модель
+    $dp = draw_prompt($text);
+    if ($dp !== null) {
+        $url = gen_image($dp);
+        $reply = $url ? '[img]' . $url : 'Не получилось нарисовать — генератор картинок ещё не запущен.';
+    } else {
+        $reply = kb_lookup($text);
+        if ($reply === null && looks_like_question($text)) $reply = web_search($text);
+        if ($reply === null) $reply = ai_reply($text, build_system($set));
+    }
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')
        ->execute([$me['id'], $chat, $reply]);
     $mid = (int)$db->lastInsertId();

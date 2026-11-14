@@ -13,3 +13,4 @@ define('MAIL_NAME', 'Искра');
 define('MODEL_URL', 'http://127.0.0.1:2446');
 define('GOOGLE_CSE_CX', '');   // ID поисковика Programmable Search
 define('GOOGLE_API_KEY', '');  // ключ API вида AIza...
+define('IMAGE_URL', 'http://127.0.0.1:2447');  // локальный генератор картинок

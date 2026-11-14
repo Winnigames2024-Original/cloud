@@ -47,6 +47,7 @@ body{background:var(--bg);color:var(--text);
 .bubble{max-width:80%;padding:12px 15px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word}
 .row.user .bubble{background:var(--accent);color:#0d1117;border-bottom-right-radius:5px}
 .row.ai .bubble{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:5px}
+.genimg{display:block;max-width:320px;width:100%;border-radius:12px}
 .composer{display:flex;gap:10px;align-items:flex-end;padding:14px 16px;border-top:1px solid var(--line);background:var(--bg)}
 .composer textarea{flex:1;max-height:180px;resize:none;padding:12px 14px;border-radius:12px;
   border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:15px}

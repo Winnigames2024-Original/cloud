@@ -16,7 +16,10 @@ function addMsg(role, text, id){
   const row = document.createElement('div');
   row.className = 'row ' + role;
   if (id) row.dataset.id = id;
-  row.innerHTML = '<div class="bubble">' + esc(text) + '</div>';
+  const body = text.startsWith('[img]')
+    ? '<img class="genimg" src="' + esc(text.slice(5)) + '" alt="картинка">'
+    : esc(text);
+  row.innerHTML = '<div class="bubble">' + body + '</div>';
   const act = document.createElement('div');
   act.className = 'msg-actions';
   if (role === 'user') {

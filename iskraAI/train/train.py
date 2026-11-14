@@ -11,7 +11,7 @@ from tokenizer import VOCAB_SIZE
 BLOCK = 256       # длина контекста
 BATCH = 32        # размер батча
 LR = 3e-4
-STEPS = 5000      # сколько шагов обучать за один запуск
+STEPS = int(os.environ.get("ISKRA_STEPS", "5000"))  # шагов за один запуск (autolearn ставит меньше)
 EVAL_EVERY = 250  # как часто проверять и сохранять
 
 HERE = os.path.dirname(os.path.abspath(__file__))

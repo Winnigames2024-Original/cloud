@@ -83,6 +83,24 @@ function draw_prompt(string $q): ?string {
     return null;
 }
 
+// Создание файла по запросу: «создай файл …», «сохрани в файл …»
+function file_request(string $q): ?array {
+    if (!preg_match('~(созда|сдела|сохран|запиш|сгенерируй)\w*\s+файл~ui', $q)) return null;
+    $name = 'file.txt';
+    if (preg_match('~([\w\-]+\.[A-Za-z0-9]{1,6})~u', $q, $m)) $name = $m[1];
+    return ['name' => $name];
+}
+
+function make_file(string $chat, string $name, string $content): ?string {
+    $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
+    $dir = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . '/files/' . $cid;
+    @mkdir($dir, 0775, true);
+    $name = preg_replace('~[^A-Za-z0-9._\-]~', '_', $name);
+    if ($name === '' || $name[0] === '.') $name = 'file.txt';
+    if (file_put_contents($dir . '/' . $name, $content) === false) return null;
+    return $name;
+}
+
 function gen_image(string $prompt): ?string {
     if (!defined('IMAGE_URL') || IMAGE_URL === '') return null;
     $ch = curl_init(IMAGE_URL . '/generate');
@@ -341,8 +359,23 @@ switch ($action) {
     $wantVK = vk_request($text) && is_owner($me);
     $idA = identity_answer($text);
 
+    $fr = file_request($text);
+
     if ($idA !== null) {
         $reply = $idA;
+    } elseif ($fr !== null) {
+        $content = ai_reply(
+            'Сгенерируй содержимое файла "' . $fr['name'] . '" по запросу: ' . $text .
+            '. Выведи ТОЛЬКО содержимое файла, без пояснений и без markdown-обрамления.',
+            'Ты генерируешь содержимое файлов (код, тексты, данные).', 1024);
+        $saved = make_file($chat, $fr['name'], $content);
+        $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
+        if ($saved) {
+            $reply = "Создала файл **" . $saved . "**.\n[file]" . $saved . "|/files/" . $cid . "/" . $saved
+                   . "\n\nВсе файлы этого чата: http://185.182.108.16:23456/" . $cid;
+        } else {
+            $reply = "Не удалось создать файл.";
+        }
     } elseif ($dp !== null && $wantVK) {
         $url = gen_image($dp);
         $caption = ai_reply('Короткий живой пост для ВКонтакте к картинке по теме: ' . $dp,

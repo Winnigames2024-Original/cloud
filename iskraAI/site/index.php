@@ -20,7 +20,7 @@ endif;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Искра</title>
-<link rel="stylesheet" href="/assets/app.css?v=8">
+<link rel="stylesheet" href="/assets/app.css?v=9">
 </head>
 <body>
 <div class="app" id="app">
@@ -77,6 +77,15 @@ endif;
       </div>
     </div>
   </main>
+
+  <aside class="rightbar" id="rightbar">
+    <div class="rb-head"><span>Проводник</span>
+      <button class="icon" id="rb-refresh" title="Обновить">⟳</button>
+      <button class="icon" id="rb-close" title="Закрыть">×</button>
+    </div>
+    <div class="rb-files" id="rb-files"></div>
+    <div class="rb-foot"><a id="rb-ext" href="#" target="_blank">Открыть отдельно ↗</a></div>
+  </aside>
 </div>
 
 <div class="modal" id="settings" hidden>
@@ -92,6 +101,18 @@ endif;
   </div>
 </div>
 
+<div class="modal" id="viewer" hidden>
+  <div class="modal-box modal-wide">
+    <h3 id="v-name">файл</h3>
+    <textarea id="v-content" rows="16" spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button class="ghost" id="v-del">Удалить</button>
+      <button class="ghost" id="v-close">Закрыть</button>
+      <button id="v-save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="actions" hidden>
   <div class="modal-box">
     <h3>Действия Искры — этот чат</h3>
@@ -100,6 +121,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=8"></script>
+<script src="/assets/app.js?v=9"></script>
 </body>
 </html>

@@ -220,6 +220,7 @@ async function send(){
   } catch(e){ typing.querySelector('.bubble').textContent = 'Ошибка сети'; }
   $('#send').disabled = false;
   loadChats();
+  if (app.classList.contains('showfiles')) loadFiles();
 }
 $('#send').onclick = send;
 input.addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
@@ -259,11 +260,39 @@ $('#acts').onclick = async () => {
 };
 $('#acts-close').onclick = () => $('#actions').hidden = true;
 
-// ── файлы чата (эксплорер) ──
-$('#files').onclick = () => {
-  if (!current) { alert('Сначала напиши что-нибудь в чате.'); return; }
-  window.open('http://' + location.hostname + ':23456/' + current, '_blank');
-};
+// ── проводник (правая панель) ──
+function human(n){ const u=['Б','КБ','МБ']; let i=0; while(n>=1024&&i<2){n/=1024;i++;} return (i?n.toFixed(1):n)+' '+u[i]; }
+async function loadFiles(){
+  const box = $('#rb-files'); box.innerHTML = '';
+  if (!current) { box.innerHTML = '<div class="rb-empty">Открой чат.</div>'; return; }
+  $('#rb-ext').href = 'http://' + location.hostname + ':23456/' + current;
+  const d = await api('files_list&chat=' + encodeURIComponent(current));
+  if (!d.files || !d.files.length) { box.innerHTML = '<div class="rb-empty">Файлов пока нет.<br>Попроси Искру: «создай файл …»</div>'; return; }
+  d.files.forEach(f => {
+    const el = document.createElement('div'); el.className = 'rb-file';
+    el.innerHTML = '<span class="n">'+(f.img?'🖼':'📄')+' '+esc(f.name)+'</span><span class="sz">'+human(f.size)+'</span>';
+    el.onclick = () => f.img ? openLightbox(f.url) : openFile(f.name);
+    const del = document.createElement('button'); del.className='rbdel'; del.textContent='×';
+    del.onclick = async e => { e.stopPropagation(); if(!confirm('Удалить '+f.name+'?'))return;
+      await api('file_del', {chat:current, name:f.name}); loadFiles(); };
+    el.appendChild(del); box.appendChild(el);
+  });
+}
+$('#files').onclick = () => { app.classList.toggle('showfiles'); if (app.classList.contains('showfiles')) loadFiles(); };
+$('#rb-close').onclick = () => app.classList.remove('showfiles');
+$('#rb-refresh').onclick = loadFiles;
+
+// просмотр/правка файла
+let vName = '';
+async function openFile(name){
+  const d = await api('file_get&chat=' + encodeURIComponent(current) + '&name=' + encodeURIComponent(name));
+  if (d.err) { alert('Не удалось открыть файл'); return; }
+  vName = name; $('#v-name').textContent = name; $('#v-content').value = d.content || '';
+  $('#viewer').hidden = false;
+}
+$('#v-close').onclick = () => $('#viewer').hidden = true;
+$('#v-save').onclick = async () => { await api('file_put', {chat:current, name:vName, content:$('#v-content').value}); $('#viewer').hidden = true; loadFiles(); };
+$('#v-del').onclick = async () => { if(!confirm('Удалить '+vName+'?'))return; await api('file_del', {chat:current, name:vName}); $('#viewer').hidden = true; loadFiles(); };
 
 // ── характер ──
 $('#gear').onclick = () => {

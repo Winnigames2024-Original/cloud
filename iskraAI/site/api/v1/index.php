@@ -96,6 +96,17 @@ function log_action(PDO $db, int $uid, string $chat, string $kind, string $detai
        ->execute([$uid, $chat, $kind, mb_substr($detail, 0, 500)]);
 }
 
+function own_chat(PDO $db, int $uid, string $chat): bool {
+    $st = $db->prepare('SELECT 1 FROM chats WHERE chat_id=? AND user_id=?');
+    $st->execute([$chat, $uid]);
+    return (bool)$st->fetch();
+}
+
+function del_file_request(string $q): ?string {
+    if (preg_match('~удали\w*\s+файл\s+([\w\-.]+)~ui', $q, $m)) return $m[1];
+    return null;
+}
+
 function make_file(string $chat, string $name, string $content): ?string {
     $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
     $dir = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . '/files/' . $cid;
@@ -288,6 +299,43 @@ switch ($action) {
     $st->execute([$me['id'], $_GET['chat'] ?? '']);
     j(['actions' => $st->fetchAll()]);
 
+  case 'files_list':
+    $chat = $_GET['chat'] ?? '';
+    if (!own_chat($db, $me['id'], $chat)) j(['files' => []]);
+    $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
+    $dir = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . '/files/' . $cid;
+    $out = [];
+    if (is_dir($dir)) foreach (scandir($dir) as $f) {
+        if ($f[0] === '.') continue;
+        $p = "$dir/$f";
+        if (is_file($p)) $out[] = ['name' => $f, 'size' => filesize($p),
+            'img' => (bool)preg_match('~\.(png|jpe?g|gif|webp)$~i', $f), 'url' => '/files/' . $cid . '/' . $f];
+    }
+    j(['files' => $out]);
+
+  case 'file_get':
+    $chat = $_GET['chat'] ?? ''; $name = basename($_GET['name'] ?? '');
+    if (!own_chat($db, $me['id'], $chat)) { http_response_code(403); j(['err' => 'no']); }
+    $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
+    $p = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . "/files/$cid/$name";
+    if (!is_file($p)) { http_response_code(404); j(['err' => '404']); }
+    j(['name' => $name, 'content' => mb_substr(file_get_contents($p), 0, 100000)]);
+
+  case 'file_put':
+    $chat = trim($in['chat'] ?? ''); $name = basename($in['name'] ?? '');
+    if (!own_chat($db, $me['id'], $chat)) { http_response_code(403); j(['err' => 'no']); }
+    if ($name === '') { http_response_code(400); j(['err' => 'name']); }
+    $saved = make_file($chat, $name, (string)($in['content'] ?? ''));
+    j(['ok' => (bool)$saved, 'name' => $saved]);
+
+  case 'file_del':
+    $chat = trim($in['chat'] ?? ''); $name = basename($in['name'] ?? '');
+    if (!own_chat($db, $me['id'], $chat)) { http_response_code(403); j(['err' => 'no']); }
+    $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
+    $p = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . "/files/$cid/$name";
+    if (is_file($p)) @unlink($p);
+    j(['ok' => true]);
+
   case 'msg_edit':
     $id = (int)($in['id'] ?? 0);
     $text = trim($in['text'] ?? '');
@@ -370,9 +418,16 @@ switch ($action) {
     $idA = identity_answer($text);
 
     $fr = file_request($text);
+    $delf = del_file_request($text);
 
     if ($idA !== null) {
         $reply = $idA;
+    } elseif ($delf !== null) {
+        $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
+        $p = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . "/files/$cid/" . basename($delf);
+        if (is_file($p)) { @unlink($p); log_action($db, $me['id'], $chat, 'file', 'удалён ' . $delf);
+            $reply = "Удалила файл **" . $delf . "**."; }
+        else $reply = "Файла **" . $delf . "** в этом чате нет.";
     } elseif ($fr !== null) {
         $content = ai_reply(
             'Сгенерируй содержимое файла "' . $fr['name'] . '" по запросу: ' . $text .

@@ -164,3 +164,8 @@ code.inline{background:var(--panel2);border:1px solid var(--line);border-radius:
 /* баннер режима проверки */
 .imp-banner{background:#3a2a10;color:#f0c674;padding:8px 16px;font-size:14px;text-align:center}
 .imp-banner a{color:var(--accent)}
+
+/* кнопка админки в сайдбаре */
+.admin-btn{display:block;text-align:center;padding:9px;margin-bottom:12px;border-radius:9px;
+  background:var(--accent);color:var(--onacc);font-weight:600;font-size:14px;text-decoration:none}
+.admin-btn:hover{opacity:.9;text-decoration:none}

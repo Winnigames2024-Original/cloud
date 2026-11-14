@@ -31,7 +31,7 @@ endif;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Искра</title>
-<link rel="stylesheet" href="/assets/app.css?v=10">
+<link rel="stylesheet" href="/assets/app.css?v=11">
 </head>
 <body>
 <?php if (!empty($_SESSION['imp_from'])): ?>
@@ -44,10 +44,10 @@ endif;
     <div class="sb-top"><button class="newchat" id="newchat">＋ Новый чат</button></div>
     <div class="chats" id="chatlist"></div>
     <div class="sb-user">
+      <?php if (is_admin($me)): ?><a class="admin-btn" href="/admin.php">⚙ Админ-панель</a><?php endif; ?>
       <div class="who"><span class="dot">◆</span> <?= htmlspecialchars($me['nick']) ?></div>
       <div class="who-links">
         <a href="/profile.php">Профиль</a>
-        <?php if (is_admin($me)): ?><a href="/admin.php">Админка</a><?php endif; ?>
         <a href="/logout.php">Выйти</a>
       </div>
     </div>

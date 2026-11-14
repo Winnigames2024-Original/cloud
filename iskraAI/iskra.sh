@@ -143,7 +143,9 @@ EOF
 
 # ───────── таймер автообновления (каждые 5 минут) ─────────
 install_timer(){
-  cp "$SELF" /usr/local/bin/iskra.sh
+  if [ "$SELF" != "/usr/local/bin/iskra.sh" ]; then
+    cp "$SELF" /usr/local/bin/iskra.sh
+  fi
   chmod +x /usr/local/bin/iskra.sh
   cat > /etc/systemd/system/iskra-update.service <<EOF
 [Unit]

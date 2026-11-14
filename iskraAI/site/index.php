@@ -20,7 +20,7 @@ endif;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Искра</title>
-<link rel="stylesheet" href="/assets/app.css?v=2">
+<link rel="stylesheet" href="/assets/app.css?v=3">
 </head>
 <body>
 <div class="app" id="app">
@@ -39,8 +39,18 @@ endif;
   <main class="main">
     <header class="bar">
       <button class="burger" id="burger" aria-label="Меню">≡</button>
-      <span class="bar-title">Искра</span>
-      <button class="gear" id="gear" title="Характер Искры в этом чате">⚙</button>
+      <select id="mode" class="barsel" title="Режим">
+        <option value="auto">АВТО</option>
+        <option value="normal">Обычный</option>
+        <option value="code">Экстра · код</option>
+        <option value="fast">Быстрый</option>
+      </select>
+      <select id="model" class="barsel" title="Модель">
+        <option value="smart">Искра Про</option>
+        <option value="own">Искра · своя</option>
+      </select>
+      <button class="icon" id="theme" title="Тема">◐</button>
+      <button class="icon" id="gear" title="Характер Искры в этом чате">⚙</button>
     </header>
 
     <div class="messages" id="messages">
@@ -70,6 +80,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=2"></script>
+<script src="/assets/app.js?v=3"></script>
 </body>
 </html>

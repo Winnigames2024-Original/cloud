@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS chats (
   title       VARCHAR(120) NOT NULL DEFAULT 'Новый чат',
   allow_anger TINYINT(1) NOT NULL DEFAULT 0,
   persona     VARCHAR(500) NOT NULL DEFAULT '',
+  mode        VARCHAR(16) NOT NULL DEFAULT 'auto',
+  model       VARCHAR(16) NOT NULL DEFAULT 'smart',
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (user_id, updated_at),
@@ -64,3 +66,7 @@ CREATE TABLE IF NOT EXISTS rate_limit (
   at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (ip, action, at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Догоняющие колонки для уже существующих баз (безопасно повторно):
+ALTER TABLE chats ADD COLUMN IF NOT EXISTS mode  VARCHAR(16) NOT NULL DEFAULT 'auto';
+ALTER TABLE chats ADD COLUMN IF NOT EXISTS model VARCHAR(16) NOT NULL DEFAULT 'smart';

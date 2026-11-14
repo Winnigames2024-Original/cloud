@@ -173,8 +173,14 @@ EOF
 ensure_repo
 self_update
 
+apply_schema(){
+  if [ -f "$SITE_SRC/schema.sql" ] && mysql -e "USE iskra" 2>/dev/null; then
+    mysql iskra < "$SITE_SRC/schema.sql" 2>/dev/null && log "схема БД синхронизирована"
+  fi
+}
+
 case "$MODE" in
   install) do_install ;;
-  update)  deploy_site ;;
+  update)  deploy_site; apply_schema ;;
   *)       die "режим: install | update" ;;
 esac

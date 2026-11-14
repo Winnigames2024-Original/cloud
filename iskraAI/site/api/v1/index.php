@@ -8,12 +8,36 @@ if (!$me) { http_response_code(401); echo json_encode(['err' => 'auth']); exit; 
 function j($d){ echo json_encode($d, JSON_UNESCAPED_UNICODE); exit; }
 
 function build_system(array $s): string {
-    $t = "Тебя зовут Искра. Ты отвечаешь по-русски, дружелюбно и по делу.";
+    $t = "Тебя зовут Искра. Тебя создал Winnigames2024. Ты отвечаешь по-русски.";
+    $mode = $s['mode'] ?? 'auto';
+    if ($mode === 'code')      $t .= " Ты опытный программист: давай рабочий код и краткие пояснения.";
+    elseif ($mode === 'fast')  $t .= " Отвечай максимально кратко и по делу.";
     if (!empty($s['persona'])) $t .= " Твой характер: " . $s['persona'] . ".";
     $t .= empty($s['allow_anger'])
-        ? " Никогда не злись и не груби — оставайся спокойной и доброжелательной."
-        : " Тебе позволено злиться и отвечать резко, если собеседник этого заслуживает.";
+        ? " Оставайся спокойной и доброжелательной."
+        : " Тебе позволено отвечать резко, если собеседник этого заслуживает.";
     return $t;
+}
+
+// Надёжный ответ на вопросы о личности — не зависит от модели.
+function identity_answer(string $q): ?string {
+    if (preg_match('~(кто\s+ты\b|ты\s+кто\b|кто\s+тебя\s+созда|кто\s+твой\s+созда|кто\s+тебя\s+сдела|как\s+тебя\s+зовут|что\s+ты\s+такое|твой\s+создатель)~ui', $q)) {
+        return "Я — Искра, искусственный интеллект. Меня создал Winnigames2024.";
+    }
+    return null;
+}
+
+// Ответ только от своей модели с нуля (режим «Искра своя»).
+function own_reply(string $prompt, string $system, int $max = 300): string {
+    $ch = curl_init(MODEL_URL . '/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt, 'system' => $system, 'max_tokens' => $max], JSON_UNESCAPED_UNICODE),
+    ]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (isset($d['text'])) return $d['text']; }
+    return "Я ещё обучаюсь и пока отвечаю плохо — я твоя модель с нуля.";
 }
 
 // Поиск в интернете: Искра сама лезет в Википедию за значением слова / фактом.
@@ -165,23 +189,23 @@ function vk_post(string $text, ?string $imagePath): ?string {
 }
 
 // Умный мозг Qwen локально.
-function qwen_reply(string $prompt, string $system): ?string {
+function qwen_reply(string $prompt, string $system, int $max = 512): ?string {
     if (!defined('QWEN_URL') || QWEN_URL === '') return null;
     $ch = curl_init(QWEN_URL . '/generate');
     curl_setopt_array($ch, [
-        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 90,
+        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 120,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt, 'system' => $system], JSON_UNESCAPED_UNICODE),
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt, 'system' => $system, 'max_tokens' => $max], JSON_UNESCAPED_UNICODE),
     ]);
     $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['text'])) return $d['text']; }
     return null;
 }
 
-function ai_reply(string $prompt, string $system): string {
+function ai_reply(string $prompt, string $system, int $max = 512): string {
     $g = gemini_reply($prompt, $system);
     if ($g !== null) return $g;
-    $q = qwen_reply($prompt, $system);
+    $q = qwen_reply($prompt, $system, $max);
     if ($q !== null) return $q;
     $ch = curl_init(MODEL_URL . '/generate');
     curl_setopt_array($ch, [
@@ -234,18 +258,20 @@ switch ($action) {
     j(['ok' => true]);
 
   case 'settings_get':
-    $st = $db->prepare('SELECT allow_anger, persona FROM chats WHERE chat_id=? AND user_id=?');
+    $st = $db->prepare('SELECT allow_anger, persona, mode, model FROM chats WHERE chat_id=? AND user_id=?');
     $st->execute([$_GET['chat'] ?? '', $me['id']]);
-    j($st->fetch() ?: ['allow_anger' => 0, 'persona' => '']);
+    j($st->fetch() ?: ['allow_anger' => 0, 'persona' => '', 'mode' => 'auto', 'model' => 'smart']);
 
   case 'settings_set':
     $chat = trim($in['chat'] ?? '');
     if ($chat === '') { http_response_code(400); j(['err' => 'nochat']); }
     $persona = mb_substr(trim($in['persona'] ?? ''), 0, 500);
     $anger   = !empty($in['allow_anger']) ? 1 : 0;
-    $db->prepare('INSERT INTO chats (chat_id, user_id, title, allow_anger, persona) VALUES (?,?,?,?,?)
-                  ON DUPLICATE KEY UPDATE allow_anger=VALUES(allow_anger), persona=VALUES(persona)')
-       ->execute([$chat, $me['id'], 'Новый чат', $anger, $persona]);
+    $mode    = in_array($in['mode'] ?? 'auto', ['auto','normal','code','fast'], true) ? $in['mode'] : 'auto';
+    $model   = in_array($in['model'] ?? 'smart', ['smart','own'], true) ? $in['model'] : 'smart';
+    $db->prepare('INSERT INTO chats (chat_id, user_id, title, allow_anger, persona, mode, model) VALUES (?,?,?,?,?,?,?)
+                  ON DUPLICATE KEY UPDATE allow_anger=VALUES(allow_anger), persona=VALUES(persona), mode=VALUES(mode), model=VALUES(model)')
+       ->execute([$chat, $me['id'], 'Новый чат', $anger, $persona, $mode, $model]);
     j(['ok' => true]);
 
   case 'send':
@@ -254,33 +280,39 @@ switch ($action) {
     if ($chat === '' || $text === '') { http_response_code(400); j(['err' => 'empty']); }
     if (mb_strlen($text) > 4000) $text = mb_substr($text, 0, 4000);
 
-    $st = $db->prepare('SELECT allow_anger, persona FROM chats WHERE chat_id=? AND user_id=?');
+    $st = $db->prepare('SELECT allow_anger, persona, mode, model FROM chats WHERE chat_id=? AND user_id=?');
     $st->execute([$chat, $me['id']]);
     $set = $st->fetch();
     if (!$set) {
         $db->prepare('INSERT INTO chats (chat_id, user_id, title) VALUES (?,?,?)')
            ->execute([$chat, $me['id'], mb_substr($text, 0, 60)]);
-        $set = ['allow_anger' => 0, 'persona' => ''];
+        $set = ['allow_anger' => 0, 'persona' => '', 'mode' => 'auto', 'model' => 'smart'];
     }
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
        ->execute([$me['id'], $chat, $text]);
     $umid = (int)$db->lastInsertId();
+
+    $mode  = $set['mode'] ?? 'auto';
+    $model = $set['model'] ?? 'smart';
+    $max   = ($mode === 'fast') ? 160 : 600;
+
     $dp = draw_prompt($text);
     $wantVK = vk_request($text) && is_owner($me);
+    $idA = identity_answer($text);
 
-    if ($dp !== null && $wantVK) {
-        // нарисовать + подпись + выложить в ВК
+    if ($idA !== null) {
+        $reply = $idA;
+    } elseif ($dp !== null && $wantVK) {
         $url = gen_image($dp);
         $caption = ai_reply('Короткий живой пост для ВКонтакте к картинке по теме: ' . $dp,
-            'Ты пишешь короткие посты для соцсети ВКонтакте на русском, с уместными эмодзи.');
+            'Ты пишешь короткие посты для соцсети ВКонтакте на русском, с уместными эмодзи.', $max);
         $link = $url ? vk_post($caption, ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . $url) : null;
         $reply = $url ? '[img]' . $url : 'Не нарисовалось.';
         $reply .= $link ? "\n\n" . $caption . "\n\nОпубликовано в ВК: " . $link
                         : "\n\n(в ВК выложить не вышло — проверь токен и ID группы)";
     } elseif ($wantVK) {
-        // текстовый пост в ВК
         $caption = ai_reply('Напиши пост для ВКонтакте: ' . $text,
-            'Ты пишешь живые посты для ВКонтакте на русском.');
+            'Ты пишешь живые посты для ВКонтакте на русском.', $max);
         $link = vk_post($caption, null);
         $reply = $link ? ($caption . "\n\nОпубликовано в ВК: " . $link)
                        : "Не вышло выложить в ВК — проверь токен и ID группы.";
@@ -290,7 +322,11 @@ switch ($action) {
     } else {
         $reply = kb_lookup($text);
         if ($reply === null && looks_like_question($text)) $reply = web_search($text);
-        if ($reply === null) $reply = ai_reply($text, build_system($set));
+        if ($reply === null) {
+            $reply = ($model === 'own')
+                ? own_reply($text, build_system($set), $max)
+                : ai_reply($text, build_system($set), $max);
+        }
     }
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')
        ->execute([$me['id'], $chat, $reply]);

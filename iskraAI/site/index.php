@@ -29,8 +29,15 @@ endif;
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Искра</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Искра">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
+<link rel="icon" href="/assets/icon-192.png">
 <link rel="stylesheet" href="/assets/app.css?v=11">
 </head>
 <body>

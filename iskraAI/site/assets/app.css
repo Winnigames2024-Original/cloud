@@ -169,3 +169,26 @@ code.inline{background:var(--panel2);border:1px solid var(--line);border-radius:
 .admin-btn{display:block;text-align:center;padding:9px;margin-bottom:12px;border-radius:9px;
   background:var(--accent);color:var(--onacc);font-weight:600;font-size:14px;text-decoration:none}
 .admin-btn:hover{opacity:.9;text-decoration:none}
+
+/* ── оптимизация под телефоны ── */
+.app{height:100vh;height:100dvh}
+@media(max-width:720px){
+  .bar{padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+  .bar .bar-title{display:none}
+  .icon{font-size:20px;padding:6px}
+  .messages{padding:16px 10px}
+  .row{margin-bottom:14px}
+  .bubble{max-width:88%}
+  .row.ai .bubble{max-width:94%}
+  .composer{padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .composer-main{border-radius:14px}
+  .composer-main textarea{font-size:16px}           /* не даём iOS зумить */
+  .composer-tools{flex-wrap:wrap;gap:6px}
+  .barsel{flex:1;min-width:0;font-size:13px}
+  .tool,.sendbtn{width:38px;height:38px}
+  .modal-box{width:94%;padding:18px}
+  .rightbar{width:84vw;max-width:340px}
+  .sidebar{width:82vw;max-width:320px}
+}
+/* крупные тап-цели и отключение подсветки тапа */
+button,.chat-item,.rb-file,.icon,a{-webkit-tap-highlight-color:transparent}

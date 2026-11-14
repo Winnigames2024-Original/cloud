@@ -311,3 +311,5 @@ $('#s-save').onclick = async () => {
 loadChats();
 // открыть чат из адреса при загрузке
 (() => { const id = location.hash.slice(1); if (id) openChat(id, false); })();
+// установка как приложение (PWA)
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

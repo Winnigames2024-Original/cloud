@@ -138,8 +138,42 @@ EOF
   certbot --nginx -d "$DOMAIN" --agree-tos -m "$LE_EMAIL" --redirect -n || \
     log "certbot не прошёл — проверь DNS и запусти его позже вручную"
 
+  setup_extras
   install_timer
   log "установка завершена"
+}
+
+# ───────── доп-настройка: анти-лаг, права, часовой пояс, главный админ ─────────
+setup_extras(){
+  timedatectl set-timezone Europe/Moscow 2>/dev/null || true
+
+  cat > /usr/local/bin/iskra-antilag.sh <<'ALEOF'
+#!/bin/bash
+# снять нагрузку: сбросить кэш памяти и перезапустить тяжёлые GPU-сервисы
+sync
+echo 1 > /proc/sys/vm/drop_caches 2>/dev/null
+systemctl restart iskra-image iskra-llm 2>/dev/null
+exit 0
+ALEOF
+  chmod +x /usr/local/bin/iskra-antilag.sh
+
+  cat > /etc/sudoers.d/iskra <<'SUEOF'
+www-data ALL=(root) NOPASSWD: /sbin/reboot, /sbin/poweroff, /usr/local/bin/iskra-antilag.sh
+SUEOF
+  chmod 440 /etc/sudoers.d/iskra
+
+  # главный админ по почте владельца
+  local cfg="$WEB_DIR/inc/config.php"
+  if [ -f "$cfg" ]; then
+    if grep -q OWNER_EMAIL "$cfg"; then
+      sed -i "s|define('OWNER_EMAIL'.*|define('OWNER_EMAIL', 'winnigames2024@gmail.com');|" "$cfg"
+    else
+      echo "define('OWNER_EMAIL', 'winnigames2024@gmail.com');" >> "$cfg"
+    fi
+  fi
+  mysql iskra -e "UPDATE users SET role='admin', banned=0 WHERE nick='Winnigames2024' OR email='winnigames2024@gmail.com';" 2>/dev/null || true
+  systemctl reload php*-fpm 2>/dev/null || true
+  log "доп-настройка: анти-лаг, права, часовой пояс МСК, главный админ"
 }
 
 # ───────── таймер автообновления (каждые 5 минут) ─────────

@@ -21,10 +21,13 @@ $('#burger').onclick = () => app.classList.toggle('nosidebar');
 
 function esc(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
 
-function renderContent(text){
+function inlineFmt(s){
+  return esc(s).replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
+}
+function renderText(text){
   const lines = String(text).split('\n');
   let html = '', buf = [];
-  const flush = () => { if (buf.length){ html += '<div>' + esc(buf.join('\n')) + '</div>'; buf = []; } };
+  const flush = () => { if (buf.length){ html += '<div>' + inlineFmt(buf.join('\n')) + '</div>'; buf = []; } };
   lines.forEach(l => {
     if (l.startsWith('[img]')) { flush(); html += '<img class="genimg" src="' + esc(l.slice(5)) + '">'; }
     else if (l.startsWith('[file]')) { flush(); const p = l.slice(6).split('|');
@@ -34,6 +37,33 @@ function renderContent(text){
   flush();
   return html;
 }
+function renderContent(text){
+  const parts = String(text).split('```');
+  let html = '';
+  parts.forEach((part, i) => {
+    if (i % 2 === 1) {
+      let body = part, lang = '';
+      const nl = part.indexOf('\n');
+      if (nl >= 0) { const first = part.slice(0, nl).trim();
+        if (/^[a-zA-Z0-9+#.\-]{0,15}$/.test(first)) { lang = first; body = part.slice(nl + 1); } }
+      body = body.replace(/\n$/, '');
+      html += '<div class="codeblock"><button class="copy">Копировать</button><pre><code>' + esc(body) + '</code></pre></div>';
+    } else {
+      html += renderText(part);
+    }
+  });
+  return html;
+}
+// кнопка «Копировать» у блоков кода
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('copy')) {
+    const code = e.target.parentElement.querySelector('code');
+    if (code) navigator.clipboard.writeText(code.textContent).then(() => {
+      const t = e.target.textContent; e.target.textContent = 'Скопировано';
+      setTimeout(() => e.target.textContent = t, 1200);
+    });
+  }
+});
 
 function addMsg(role, text, id){
   $('#empty')?.remove();

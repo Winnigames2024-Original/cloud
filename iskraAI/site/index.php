@@ -20,7 +20,7 @@ endif;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Искра</title>
-<link rel="stylesheet" href="/assets/app.css?v=7">
+<link rel="stylesheet" href="/assets/app.css?v=8">
 </head>
 <body>
 <div class="app" id="app">
@@ -100,6 +100,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=7"></script>
+<script src="/assets/app.js?v=8"></script>
 </body>
 </html>

@@ -91,6 +91,11 @@ function file_request(string $q): ?array {
     return ['name' => $name];
 }
 
+function log_action(PDO $db, int $uid, string $chat, string $kind, string $detail): void {
+    $db->prepare('INSERT INTO actions (user_id, chat_id, kind, detail) VALUES (?,?,?,?)')
+       ->execute([$uid, $chat, $kind, mb_substr($detail, 0, 500)]);
+}
+
 function make_file(string $chat, string $name, string $content): ?string {
     $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
     $dir = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . '/files/' . $cid;
@@ -278,6 +283,11 @@ switch ($action) {
     $st->execute([$me['id'], $_GET['chat'] ?? '']);
     j(['messages' => $st->fetchAll()]);
 
+  case 'actions':
+    $st = $db->prepare('SELECT kind, detail, created_at FROM actions WHERE user_id=? AND chat_id=? ORDER BY id DESC LIMIT 100');
+    $st->execute([$me['id'], $_GET['chat'] ?? '']);
+    j(['actions' => $st->fetchAll()]);
+
   case 'msg_edit':
     $id = (int)($in['id'] ?? 0);
     $text = trim($in['text'] ?? '');
@@ -371,6 +381,7 @@ switch ($action) {
         $saved = make_file($chat, $fr['name'], $content);
         $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
         if ($saved) {
+            log_action($db, $me['id'], $chat, 'file', $saved);
             $reply = "Создала файл **" . $saved . "**.\n[file]" . $saved . "|/files/" . $cid . "/" . $saved
                    . "\n\nВсе файлы этого чата: http://185.182.108.16:23456/" . $cid;
         } else {
@@ -381,6 +392,8 @@ switch ($action) {
         $caption = ai_reply('Короткий живой пост для ВКонтакте к картинке по теме: ' . $dp,
             'Ты пишешь короткие посты для соцсети ВКонтакте на русском, с уместными эмодзи.', $max);
         $link = $url ? vk_post($caption, ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . $url) : null;
+        if ($url) log_action($db, $me['id'], $chat, 'image', $dp);
+        if ($link) log_action($db, $me['id'], $chat, 'vk', $link);
         $reply = $url ? '[img]' . $url : 'Не нарисовалось.';
         $reply .= $link ? "\n\n" . $caption . "\n\nОпубликовано в ВК: " . $link
                         : "\n\n(в ВК выложить не вышло — проверь токен и ID группы)";
@@ -388,14 +401,20 @@ switch ($action) {
         $caption = ai_reply('Напиши пост для ВКонтакте: ' . $text,
             'Ты пишешь живые посты для ВКонтакте на русском.', $max);
         $link = vk_post($caption, null);
+        if ($link) log_action($db, $me['id'], $chat, 'vk', $link);
         $reply = $link ? ($caption . "\n\nОпубликовано в ВК: " . $link)
                        : "Не вышло выложить в ВК — проверь токен и ID группы.";
     } elseif ($dp !== null) {
         $url = gen_image($dp);
+        if ($url) log_action($db, $me['id'], $chat, 'image', $dp);
         $reply = $url ? '[img]' . $url : 'Не получилось нарисовать — генератор картинок ещё не запущен.';
     } else {
         $reply = kb_lookup($text);
-        if ($reply === null && looks_like_question($text)) $reply = web_search($text);
+        if ($reply !== null) log_action($db, $me['id'], $chat, 'wiki', $text);
+        if ($reply === null && looks_like_question($text)) {
+            $reply = web_search($text);
+            if ($reply !== null) log_action($db, $me['id'], $chat, 'web', $text);
+        }
         if ($reply === null) {
             $prompt = $text . $modelExtra;
             $reply = ($model === 'own')

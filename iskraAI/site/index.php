@@ -20,7 +20,7 @@ endif;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Искра</title>
-<link rel="stylesheet" href="/assets/app.css?v=6">
+<link rel="stylesheet" href="/assets/app.css?v=7">
 </head>
 <body>
 <div class="app" id="app">
@@ -40,6 +40,7 @@ endif;
     <header class="bar">
       <button class="burger" id="burger" aria-label="Меню">≡</button>
       <span class="bar-title">Искра</span>
+      <button class="icon" id="acts" title="Действия ИИ">⚡</button>
       <button class="icon" id="files" title="Файлы этого чата">📁</button>
       <button class="icon" id="share" title="Поделиться чатом">↗</button>
       <button class="icon" id="theme" title="Тема">◐</button>
@@ -91,6 +92,14 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=6"></script>
+<div class="modal" id="actions" hidden>
+  <div class="modal-box">
+    <h3>Действия Искры — этот чат</h3>
+    <div id="acts-list" class="acts-list"></div>
+    <div class="modal-actions"><button id="acts-close">Закрыть</button></div>
+  </div>
+</div>
+
+<script src="/assets/app.js?v=7"></script>
 </body>
 </html>

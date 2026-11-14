@@ -212,6 +212,23 @@ $('#share').onclick = async () => {
   catch(_) { prompt('Чат публичный. Скопируй ссылку:', link); }
 };
 
+// ── действия ИИ ──
+const ACT_NAMES = {file:'📄 Создан файл', image:'🖼 Нарисована картинка', vk:'📣 Пост в ВК', web:'🔎 Поиск в Google', wiki:'📘 Поиск в Википедии'};
+$('#acts').onclick = async () => {
+  if (!current) { alert('Открой чат.'); return; }
+  const d = await api('actions&chat=' + encodeURIComponent(current));
+  const box = $('#acts-list'); box.innerHTML = '';
+  if (!d.actions || !d.actions.length) { box.innerHTML = '<div class="act-empty">Пока действий не было.</div>'; }
+  else d.actions.forEach(a => {
+    const el = document.createElement('div'); el.className = 'act';
+    el.innerHTML = '<div class="act-k">' + (ACT_NAMES[a.kind] || esc(a.kind)) + '</div>'
+      + '<div class="act-d">' + esc(a.detail) + '</div><div class="act-t">' + esc(a.created_at) + '</div>';
+    box.appendChild(el);
+  });
+  $('#actions').hidden = false;
+};
+$('#acts-close').onclick = () => $('#actions').hidden = true;
+
 // ── файлы чата (эксплорер) ──
 $('#files').onclick = () => {
   if (!current) { alert('Сначала напиши что-нибудь в чате.'); return; }

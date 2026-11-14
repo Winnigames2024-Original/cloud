@@ -120,3 +120,12 @@ body{background:var(--bg);color:var(--text);
 .lightbox[hidden]{display:none}
 .lightbox img{max-width:95%;max-height:95%;border-radius:10px}
 .prev img{cursor:zoom-in}
+
+/* действия ИИ */
+.acts-list{max-height:50vh;overflow-y:auto}
+.act{padding:10px 0;border-bottom:1px solid var(--line)}
+.act:last-child{border:0}
+.act-k{font-weight:600;font-size:14px}
+.act-d{color:var(--dim);font-size:13px;word-break:break-word;margin-top:2px}
+.act-t{color:var(--dim);font-size:11px;margin-top:3px;opacity:.7}
+.act-empty{color:var(--dim);padding:20px 0}

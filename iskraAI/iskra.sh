@@ -59,6 +59,8 @@ deploy_site(){
   # config.php с паролями не трогаем
   rsync -a --delete \
         --exclude 'inc/config.php' \
+        --exclude 'schema.sql' \
+        --exclude 'config.sample.php' \
         "$SITE_SRC"/ "$WEB_DIR"/
   chown -R www-data:www-data "$WEB_DIR"
   [ -f "$WEB_DIR/inc/config.php" ] && chmod 640 "$WEB_DIR/inc/config.php"
@@ -81,6 +83,7 @@ do_install(){
     mysql <<SQL
 CREATE DATABASE IF NOT EXISTS iskra CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'iskra'@'localhost' IDENTIFIED BY '$dbpass';
+ALTER USER 'iskra'@'localhost' IDENTIFIED BY '$dbpass';
 GRANT ALL PRIVILEGES ON iskra.* TO 'iskra'@'localhost';
 FLUSH PRIVILEGES;
 SQL
@@ -101,6 +104,11 @@ EOF
     chown -R www-data:www-data "$WEB_DIR"
     chmod 640 "$WEB_DIR/inc/config.php"
     log "пароль БД записан в $WEB_DIR/inc/config.php"
+  fi
+
+  # схема БД — применяется всегда, безопасна для повторного запуска
+  if [ -f "$SITE_SRC/schema.sql" ]; then
+    mysql iskra < "$SITE_SRC/schema.sql" && log "схема БД применена"
   fi
 
   # nginx

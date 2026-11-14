@@ -1,0 +1,93 @@
+<?php
+require_once __DIR__ . '/../../inc/auth.php';
+header('Content-Type: application/json; charset=utf-8');
+
+$me = current_user();
+if (!$me) { http_response_code(401); echo json_encode(['err' => 'auth']); exit; }
+
+function j($d){ echo json_encode($d, JSON_UNESCAPED_UNICODE); exit; }
+
+function build_system(array $s): string {
+    $t = "Тебя зовут Искра. Ты отвечаешь по-русски, дружелюбно и по делу.";
+    if (!empty($s['persona'])) $t .= " Твой характер: " . $s['persona'] . ".";
+    $t .= empty($s['allow_anger'])
+        ? " Никогда не злись и не груби — оставайся спокойной и доброжелательной."
+        : " Тебе позволено злиться и отвечать резко, если собеседник этого заслуживает.";
+    return $t;
+}
+
+function ai_reply(string $prompt, string $system): string {
+    $ch = curl_init(MODEL_URL . '/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt, 'system' => $system], JSON_UNESCAPED_UNICODE),
+    ]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (isset($d['text'])) return $d['text']; }
+    return "Я ещё обучаюсь и пока отвечаю заглушкой — но настройки характера для этого чата уже сохранены "
+         . "и применятся, как только подключим мою модель.";
+}
+
+$db = db();
+$action = $_GET['action'] ?? '';
+$in = json_decode(file_get_contents('php://input'), true) ?: [];
+
+switch ($action) {
+
+  case 'chats':
+    $st = $db->prepare('SELECT chat_id, title FROM chats WHERE user_id=? ORDER BY updated_at DESC LIMIT 200');
+    $st->execute([$me['id']]);
+    j(['chats' => $st->fetchAll()]);
+
+  case 'history':
+    $st = $db->prepare('SELECT role, content FROM messages WHERE user_id=? AND chat_id=? ORDER BY id');
+    $st->execute([$me['id'], $_GET['chat'] ?? '']);
+    j(['messages' => $st->fetchAll()]);
+
+  case 'settings_get':
+    $st = $db->prepare('SELECT allow_anger, persona FROM chats WHERE chat_id=? AND user_id=?');
+    $st->execute([$_GET['chat'] ?? '', $me['id']]);
+    j($st->fetch() ?: ['allow_anger' => 0, 'persona' => '']);
+
+  case 'settings_set':
+    $chat = trim($in['chat'] ?? '');
+    if ($chat === '') { http_response_code(400); j(['err' => 'nochat']); }
+    $persona = mb_substr(trim($in['persona'] ?? ''), 0, 500);
+    $anger   = !empty($in['allow_anger']) ? 1 : 0;
+    $db->prepare('INSERT INTO chats (chat_id, user_id, title, allow_anger, persona) VALUES (?,?,?,?,?)
+                  ON DUPLICATE KEY UPDATE allow_anger=VALUES(allow_anger), persona=VALUES(persona)')
+       ->execute([$chat, $me['id'], 'Новый чат', $anger, $persona]);
+    j(['ok' => true]);
+
+  case 'send':
+    $chat = trim($in['chat'] ?? '');
+    $text = trim($in['text'] ?? '');
+    if ($chat === '' || $text === '') { http_response_code(400); j(['err' => 'empty']); }
+    if (mb_strlen($text) > 4000) $text = mb_substr($text, 0, 4000);
+
+    $st = $db->prepare('SELECT allow_anger, persona FROM chats WHERE chat_id=? AND user_id=?');
+    $st->execute([$chat, $me['id']]);
+    $set = $st->fetch();
+    if (!$set) {
+        $db->prepare('INSERT INTO chats (chat_id, user_id, title) VALUES (?,?,?)')
+           ->execute([$chat, $me['id'], mb_substr($text, 0, 60)]);
+        $set = ['allow_anger' => 0, 'persona' => ''];
+    }
+    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
+       ->execute([$me['id'], $chat, $text]);
+    $reply = ai_reply($text, build_system($set));
+    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')
+       ->execute([$me['id'], $chat, $reply]);
+    $mid = (int)$db->lastInsertId();
+    $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$chat]);
+    j(['reply' => $reply, 'id' => $mid]);
+
+  case 'delete':
+    $db->prepare('DELETE FROM chats WHERE chat_id=? AND user_id=?')->execute([$in['chat'] ?? '', $me['id']]);
+    $db->prepare('DELETE FROM messages WHERE chat_id=? AND user_id=?')->execute([$in['chat'] ?? '', $me['id']]);
+    j(['ok' => true]);
+
+  default:
+    http_response_code(404); j(['err' => 'unknown action']);
+}

@@ -16,6 +16,40 @@ function build_system(array $s): string {
     return $t;
 }
 
+// Поиск в интернете: Искра сама лезет в Википедию за значением слова / фактом.
+function kb_fetch_json(string $url) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
+        CURLOPT_HTTPHEADER => ['User-Agent: IskraBot/1.0'],
+    ]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code < 200 || $code >= 300) return null;
+    return json_decode($r, true);
+}
+
+function kb_lookup(string $q): ?string {
+    if (!preg_match('~(?:что\s+такое|что\s+значит|кто\s+так(?:ой|ая|ое)|определение|значение\s+слова)\s+(.+)~ui', $q, $m)) {
+        return null;
+    }
+    $term = trim($m[1], " \t\n?.!,\"'«»");
+    if (mb_strlen($term) < 2) return null;
+
+    $os = kb_fetch_json('https://ru.wikipedia.org/w/api.php?action=opensearch&limit=1&format=json&search=' . rawurlencode($term));
+    $title = $os[1][0] ?? null;
+    if (!$title) return null;
+
+    $ex = kb_fetch_json('https://ru.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&redirects=1&format=json&titles=' . rawurlencode($title));
+    foreach (($ex['query']['pages'] ?? []) as $p) {
+        $text = trim($p['extract'] ?? '');
+        if ($text !== '') {
+            if (mb_strlen($text) > 600) $text = mb_substr($text, 0, 600) . '…';
+            return $text . "\n\n(нашла в Википедии)";
+        }
+    }
+    return null;
+}
+
 function ai_reply(string $prompt, string $system): string {
     $ch = curl_init(MODEL_URL . '/generate');
     curl_setopt_array($ch, [
@@ -99,7 +133,8 @@ switch ($action) {
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"user",?)')
        ->execute([$me['id'], $chat, $text]);
     $umid = (int)$db->lastInsertId();
-    $reply = ai_reply($text, build_system($set));
+    // сначала пробуем найти ответ в интернете (Википедия), иначе отвечает модель
+    $reply = kb_lookup($text) ?? ai_reply($text, build_system($set));
     $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')
        ->execute([$me['id'], $chat, $reply]);
     $mid = (int)$db->lastInsertId();

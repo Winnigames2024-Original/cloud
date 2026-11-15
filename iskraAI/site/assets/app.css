@@ -215,3 +215,5 @@ button,.chat-item,.rb-file,.icon,a{-webkit-tap-highlight-color:transparent}
 .pi-name{font-size:14px;font-weight:600}
 .pick-item.on .pi-name::after{content:' ✓';color:var(--accent)}
 .pi-desc{font-size:12px;color:var(--dim);margin-top:1px}
+
+.genaudio{width:100%;max-width:340px;margin-top:4px}

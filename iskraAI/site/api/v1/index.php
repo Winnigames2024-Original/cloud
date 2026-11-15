@@ -122,6 +122,28 @@ function make_file(string $chat, string $name, string $content): ?string {
     return $name;
 }
 
+function tts_speak(string $text): ?string {
+    if (!defined('TTS_URL') || TTS_URL === '') return null;
+    $ch = curl_init(TTS_URL . '/speak');
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['text' => $text], JSON_UNESCAPED_UNICODE)]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['url'])) return $d['url']; }
+    return null;
+}
+
+function img_edit(string $path, string $prompt): ?string {
+    if (!defined('IMAGE_URL') || IMAGE_URL === '') return null;
+    $ch = curl_init(IMAGE_URL . '/edit');
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 180,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['path' => $path, 'prompt' => $prompt], JSON_UNESCAPED_UNICODE)]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['url'])) return $d['url']; }
+    return null;
+}
+
 function gen_image(string $prompt): ?string {
     if (!defined('IMAGE_URL') || IMAGE_URL === '') return null;
     $ch = curl_init(IMAGE_URL . '/generate');
@@ -367,7 +389,7 @@ switch ($action) {
     if ($chat === '') { http_response_code(400); j(['err' => 'nochat']); }
     $persona = mb_substr(trim($in['persona'] ?? ''), 0, 500);
     $anger   = !empty($in['allow_anger']) ? 1 : 0;
-    $mode    = in_array($in['mode'] ?? 'auto', ['auto','normal','code','fast','gen'], true) ? $in['mode'] : 'auto';
+    $mode    = in_array($in['mode'] ?? 'auto', ['auto','normal','code','fast','gen','voice','editimg','video','subs'], true) ? $in['mode'] : 'auto';
     $model   = in_array($in['model'] ?? 'smart', ['smart','own'], true) ? $in['model'] : 'smart';
     $db->prepare('INSERT INTO chats (chat_id, user_id, title, allow_anger, persona, mode, model) VALUES (?,?,?,?,?,?,?)
                   ON DUPLICATE KEY UPDATE allow_anger=VALUES(allow_anger), persona=VALUES(persona), mode=VALUES(mode), model=VALUES(model)')
@@ -424,6 +446,20 @@ switch ($action) {
 
     if ($idA !== null) {
         $reply = $idA;
+    } elseif ($mode === 'voice') {
+        $url = tts_speak($text);
+        if ($url) log_action($db, $me['id'], $chat, 'voice', mb_substr($text, 0, 60));
+        $reply = $url ? '[audio]' . $url : 'Озвучка не запущена.';
+    } elseif ($mode === 'editimg') {
+        $img = null;
+        foreach ($files as $fl) { if (!empty($fl['img'])) { $img = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . $fl['url']; break; } }
+        if (!$img) { $reply = 'Прикрепи фото (📎), которое нужно изменить, и напиши, что поменять.'; }
+        else { $url = img_edit($img, $text); if ($url) log_action($db, $me['id'], $chat, 'image', 'правка: ' . $text);
+               $reply = $url ? '[img]' . $url : 'Не получилось изменить фото.'; }
+    } elseif ($mode === 'video') {
+        $reply = 'Генерация и изменение видео локально на этой карте пока недоступны — нужен внешний API или более мощный GPU. Скажи, если готов подключить API для видео.';
+    } elseif ($mode === 'subs') {
+        $reply = 'Субтитры делаются к видео: нужно загрузить видео, распознать речь и наложить текст. Это отдельная настройка — сделаю вместе с видео.';
     } elseif ($delf !== null) {
         $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
         $p = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . "/files/$cid/" . basename($delf);

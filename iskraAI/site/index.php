@@ -38,7 +38,7 @@ endif;
 <meta name="apple-mobile-web-app-title" content="Искра">
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
 <link rel="icon" href="/assets/icon-192.png">
-<link rel="stylesheet" href="/assets/app.css?v=13">
+<link rel="stylesheet" href="/assets/app.css?v=14">
 </head>
 <body>
 <?php if (!empty($_SESSION['imp_from'])): ?>
@@ -91,6 +91,10 @@ endif;
             <option value="code">Экстра · код</option>
             <option value="fast">Быстрый</option>
             <option value="gen">Генерация · фото</option>
+            <option value="editimg">Изменить фото</option>
+            <option value="voice">Озвучка</option>
+            <option value="video">Видео</option>
+            <option value="subs">Субтитры</option>
           </select>
           <div class="picker" id="model-picker">
             <button type="button" class="pick-btn" id="model-btn">Искра Про ▾</button>

@@ -176,6 +176,8 @@ SUEOF
   # главный админ по почте владельца
   local cfg="$WEB_DIR/inc/config.php"
   if [ -f "$cfg" ]; then
+    grep -q TTS_URL "$cfg"   || echo "define('TTS_URL', 'http://127.0.0.1:2449');"   >> "$cfg"
+    grep -q IMAGE_URL "$cfg" || echo "define('IMAGE_URL', 'http://127.0.0.1:2447');" >> "$cfg"
     if grep -q OWNER_EMAIL "$cfg"; then
       sed -i "s|define('OWNER_EMAIL'.*|define('OWNER_EMAIL', 'winnigames2024@gmail.com');|" "$cfg"
     else

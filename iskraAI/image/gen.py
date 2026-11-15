@@ -5,7 +5,8 @@ import uuid
 import requests
 import torch
 from flask import Flask, request, jsonify
-from diffusers import StableDiffusionXLPipeline
+from diffusers import StableDiffusionXLPipeline, AutoPipelineForImage2Image
+from PIL import Image
 
 OUT = "/var/www/iskra/gen"
 os.makedirs(OUT, exist_ok=True)
@@ -23,6 +24,7 @@ if device == "cuda":
     pipe.enable_model_cpu_offload()   # экономит видеопамять — помещается рядом с Qwen
 else:
     pipe = pipe.to(device)
+img2img = AutoPipelineForImage2Image.from_pipe(pipe)   # делит веса с основной — без лишней памяти
 print("Генератор картинок готов.", flush=True)
 
 
@@ -65,6 +67,27 @@ def generate():
         return jsonify(url="/gen/" + name)
     except Exception as e:
         print("ошибка генерации:", e, flush=True)
+        return jsonify(err=str(e)), 500
+
+
+@app.post("/edit")
+def edit():
+    d = request.get_json(force=True) or {}
+    prompt = (d.get("prompt") or "").strip()
+    src = d.get("path") or ""
+    if not os.path.isfile(src):
+        return jsonify(err="nofile"), 400
+    en = to_english(prompt) if prompt else "improve quality, detailed"
+    try:
+        init = Image.open(src).convert("RGB").resize((1024, 1024))
+        img = img2img(prompt=en, image=init, strength=0.6,
+                      negative_prompt="low quality, blurry, distorted",
+                      num_inference_steps=30, guidance_scale=7.0).images[0]
+        name = uuid.uuid4().hex + ".png"
+        img.save(os.path.join(OUT, name))
+        return jsonify(url="/gen/" + name)
+    except Exception as e:
+        print("ошибка редактирования:", e, flush=True)
         return jsonify(err=str(e)), 500
 
 

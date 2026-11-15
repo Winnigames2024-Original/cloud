@@ -225,8 +225,22 @@ apply_schema(){
   fi
 }
 
+repo_version(){ grep -o '"version"[^,}]*' "$SRC_DIR/iskraAI/updates.json" 2>/dev/null | grep -o '[0-9]\+' | head -1; }
+
 case "$MODE" in
-  install) do_install ;;
-  update)  deploy_site; apply_schema ;;
+  install)
+    do_install
+    repo_version > "$WEB_DIR/.version" 2>/dev/null || true
+    ;;
+  update)
+    new="$(repo_version)"
+    cur="$(cat "$WEB_DIR/.version" 2>/dev/null || echo 0)"
+    if [ -n "$new" ] && [ "$new" != "$cur" ]; then
+      deploy_site
+      apply_schema
+      echo "$new" > "$WEB_DIR/.version"
+      log "обновлено до версии $new"
+    fi
+    ;;
   *)       die "режим: install | update" ;;
 esac

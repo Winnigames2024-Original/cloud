@@ -7,7 +7,7 @@ cd "$HERE"
 case "${1:-help}" in
   setup)
     [ -x "$VENV/bin/python" ] || { echo "Сначала: ../train/run.sh setup"; exit 1; }
-    "$VENV/bin/pip" install -U "diffusers>=0.33" ftfy imageio imageio-ffmpeg
+    "$VENV/bin/pip" install -U "diffusers>=0.33" ftfy imageio imageio-ffmpeg sentencepiece protobuf
     echo "Готово."
     ;;
   serve)  "$VENV/bin/python" serve.py ;;

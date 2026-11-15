@@ -4,7 +4,7 @@
 import os, uuid, threading, subprocess, requests
 from flask import Flask, request, jsonify
 
-MODEL = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+MODEL = "Lightricks/LTX-Video"
 QWEN  = "http://127.0.0.1:2448/generate"
 OUT   = "/var/www/iskra/gen"
 NEG   = "low quality, blurry, distorted, worst quality, static, watermark"
@@ -56,10 +56,9 @@ def get_pipe():
     global _pipe
     if _pipe is None:
         import torch
-        from diffusers import AutoencoderKLWan, WanPipeline
-        print("Загружаю Wan2.1-T2V-1.3B...", flush=True)
-        vae = AutoencoderKLWan.from_pretrained(MODEL, subfolder="vae", torch_dtype=torch.float32)
-        _pipe = WanPipeline.from_pretrained(MODEL, vae=vae, torch_dtype=torch.bfloat16)
+        from diffusers import LTXPipeline
+        print("Загружаю LTX-Video...", flush=True)
+        _pipe = LTXPipeline.from_pretrained(MODEL, torch_dtype=torch.bfloat16)
         _pipe.enable_model_cpu_offload()
         print("Видео готово.", flush=True)
     return _pipe
@@ -67,9 +66,10 @@ def get_pipe():
 
 def _one_clip(pipe, en: str, path: str):
     from diffusers.utils import export_to_video
-    frames = pipe(prompt=en, negative_prompt=NEG, height=480, width=832,
-                  num_frames=81, guidance_scale=5.0, num_inference_steps=25).frames[0]
-    export_to_video(frames, path, fps=16)
+    # LTX-Video: 768x512, 24 fps, число кадров по правилу 8n+1 (121 ≈ 5 сек)
+    frames = pipe(prompt=en, negative_prompt=NEG, width=768, height=512,
+                  num_frames=121, num_inference_steps=40).frames[0]
+    export_to_video(frames, path, fps=24)
 
 
 def _run(job: str, prompt: str, seconds: int):

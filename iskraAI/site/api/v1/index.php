@@ -476,9 +476,7 @@ switch ($action) {
     $delf = del_file_request($text);
     $videoJob = null;
 
-    if ($idA !== null) {
-        $reply = $idA;
-    } elseif ($mode === 'voice') {
+    if ($mode === 'voice') {
         $url = tts_speak($text);
         if ($url) log_action($db, $me['id'], $chat, 'voice', mb_substr($text, 0, 60));
         $reply = $url ? '[audio]' . $url : 'Озвучка не запущена.';
@@ -495,6 +493,8 @@ switch ($action) {
         else $reply = 'Генерация видео не запущена. Проверь сервис video (Wan2.1) и VIDEO_URL в конфиге.';
     } elseif ($mode === 'subs') {
         $reply = 'Субтитры делаются к видео: нужно загрузить видео, распознать речь и наложить текст. Это отдельная настройка — сделаю вместе с видео.';
+    } elseif ($idA !== null) {
+        $reply = $idA;
     } elseif ($delf !== null) {
         $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
         $p = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . "/files/$cid/" . basename($delf);

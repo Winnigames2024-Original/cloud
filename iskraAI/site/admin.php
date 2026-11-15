@@ -71,6 +71,12 @@ textarea{width:100%;min-height:90px;padding:10px;border-radius:9px;border:1px so
   </div>
 
   <?php if ($super): ?>
+  <div class="panel">
+    <h2>Консоль и логи</h2>
+    <p class="sub" style="color:var(--dim);font-size:13px;margin:0 0 12px">Отдельная страница: команды от www-data и журналы сервисов. Только для тебя.</p>
+    <a href="/admin/console.php" style="display:inline-block;padding:9px 18px;border-radius:9px;background:var(--accent,#1f6feb);color:#fff;text-decoration:none">Открыть консоль →</a>
+  </div>
+
   <div class="panel srv">
     <h2>GPU-сервер</h2>
     <p class="sub" style="color:var(--dim);font-size:13px;margin:0 0 12px">Перезагрузка: сайт вернётся сам через 1–2 минуты. Выключение: сайт погаснет, включить обратно можно только в кабинете Intelion.</p>

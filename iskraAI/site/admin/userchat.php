@@ -21,6 +21,9 @@ select,.pick{padding:9px;border-radius:9px;border:1px solid var(--line);backgrou
 .m.user{align-self:flex-end;background:#1f6feb33;border:1px solid #1f6feb55}
 .m.ai{align-self:flex-start;background:var(--panel2,#161b22);border:1px solid var(--line)}
 .m .who{font-size:11px;color:var(--dim);margin-bottom:3px}
+.m .mact{display:flex;gap:6px;margin-top:6px}
+.m .mact button{width:auto;margin:0;padding:2px 8px;font-size:12px;border-radius:6px;background:transparent;color:var(--dim);border:1px solid var(--line);cursor:pointer}
+.m .mact button:hover{border-color:var(--accent);color:var(--accent)}
 .send{display:flex;gap:8px}
 .send textarea{flex:1;min-height:46px;padding:10px;border-radius:9px;border:1px solid var(--line);background:#0d1117;color:var(--text);font:inherit}
 .send button{width:auto;padding:0 18px;border-radius:9px}
@@ -57,7 +60,8 @@ const api = (a, body) => fetch('/api/v1/index.php?action=' + a,
   body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {method:'POST'})
   .then(r => r.json());
 const esc = t => { const d=document.createElement('div'); d.textContent=t??''; return d.innerHTML; };
-let curChat = null;
+let curChat = null, pollTimer = null;
+function stopPoll(){ if (pollTimer){ clearInterval(pollTimer); pollTimer = null; } }
 
 async function loadUsers(){
   const d = await api('admin_users');
@@ -79,29 +83,54 @@ async function loadChats(){
 }
 
 async function openChat(cid, title){
-  curChat = cid;
-  document.getElementById('chat-title').textContent = title || 'Сообщения';
+  if (curChat && curChat !== cid) api('admin_takeover_stop', {chat: curChat});
+  stopPoll();
+  curChat = cid; curTitle = title || 'Сообщения';
+  document.getElementById('chat-title').textContent = curTitle + ' — вы ведёте чат, ИИ молчит';
   document.getElementById('send-box').hidden = false;
-  const d = await api('admin_chat_messages&chat='+encodeURIComponent(cid));
-  const box = document.getElementById('msgs'); box.innerHTML='';
-  if (!(d.messages||[]).length) { box.innerHTML='<p class="hint">Чат пустой.</p>'; }
-  (d.messages||[]).forEach(m => {
-    const el=document.createElement('div'); el.className='m '+(m.role==='ai'?'ai':'user');
-    el.innerHTML='<div class="who">'+(m.role==='ai'?'Искра':'Пользователь')+'</div>'+esc(m.content);
-    box.appendChild(el);
-  });
-  box.scrollTop = box.scrollHeight;
+  await refresh();
+  pollTimer = setInterval(refresh, 4000);
 }
 
-document.getElementById('user').onchange = loadChats;
+async function refresh(){
+  if (!curChat) return;
+  const d = await api('admin_takeover', {chat: curChat});   // держит перехват + отдаёт сообщения
+  renderMsgs(d.messages || []);
+}
+
+function renderMsgs(list){
+  const box = document.getElementById('msgs');
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  box.innerHTML = '';
+  if (!list.length) { box.innerHTML = '<p class="hint">Чат пустой.</p>'; return; }
+  list.forEach(m => {
+    const el = document.createElement('div'); el.className = 'm ' + (m.role==='ai'?'ai':'user');
+    el.innerHTML = '<div class="who">' + (m.role==='ai'?'Искра (вы)':'Пользователь') + '</div>' + esc(m.content);
+    const act = document.createElement('div'); act.className = 'mact';
+    const e = document.createElement('button'); e.textContent = '✎'; e.title = 'Изменить';
+    e.onclick = async () => { const nv = prompt('Изменить сообщение:', m.content); if (nv===null) return;
+      await api('admin_msg_edit', {id:m.id, text:nv}); refresh(); };
+    const del = document.createElement('button'); del.textContent = '×'; del.title = 'Удалить';
+    del.onclick = async () => { if (!confirm('Удалить это сообщение?')) return;
+      await api('admin_msg_delete', {id:m.id}); refresh(); };
+    act.appendChild(e); act.appendChild(del); el.appendChild(act);
+    box.appendChild(el);
+  });
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+let curTitle = '';
+document.getElementById('user').onchange = () => { if (curChat) api('admin_takeover_stop', {chat: curChat}); stopPoll(); curChat = null;
+  document.getElementById('send-box').hidden = true; document.getElementById('msgs').innerHTML = '<p class="hint">Выбери чат слева.</p>'; loadChats(); };
 document.getElementById('send').onclick = async () => {
   const text = document.getElementById('text').value.trim();
   if (!curChat || !text) { alert('Выбери чат и напиши текст'); return; }
   const r = await api('admin_chat_send', {chat:curChat, text});
   if (r.err) { alert(r.err); return; }
-  document.getElementById('text').value='';
-  openChat(curChat, document.getElementById('chat-title').textContent);
+  document.getElementById('text').value = '';
+  refresh();
 };
+window.addEventListener('beforeunload', () => { if (curChat) navigator.sendBeacon?.('/api/v1/index.php?action=admin_takeover_stop', new Blob([JSON.stringify({chat:curChat})], {type:'application/json'})); });
 loadUsers();
 </script>
 </body></html>

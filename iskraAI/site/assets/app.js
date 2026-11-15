@@ -200,21 +200,42 @@ async function saveCfg(){
   await api('settings_set', {chat:current, persona:cfg.persona, allow_anger:cfg.allow_anger, mode:cfg.mode, model:cfg.model});
 }
 
+let liveTimer = null, lastMsgId = 0;
+function stopLive(){ if (liveTimer){ clearInterval(liveTimer); liveTimer = null; } }
+function startLive(){
+  stopLive();
+  liveTimer = setInterval(async () => {
+    if (!current) return;
+    try {
+      const d = await api('messages_since&chat=' + encodeURIComponent(current) + '&after=' + lastMsgId);
+      (d.messages||[]).forEach(m => {
+        lastMsgId = Math.max(lastMsgId, +m.id);
+        if (msgs.querySelector('.row[data-id="' + m.id + '"]')) return;   // уже на экране
+        const row = addMsg(m.role, m.content, m.id);
+        if (m.role === 'ai') { const vm = /\[vjob\]([a-f0-9]+)/.exec(m.content||''); if (vm) pollVideo(vm[1], row); }
+      });
+    } catch(e){}
+  }, 4000);
+}
+
 async function openChat(id, push = true){
   current = id;
   if (push) history.pushState({id}, '', '#' + id);
   if(isMobile()) app.classList.add('nosidebar');
   const d = await api('history&chat='+encodeURIComponent(id));
-  msgs.innerHTML='';
+  msgs.innerHTML=''; lastMsgId = 0;
   (d.messages||[]).forEach(m => {
     const row = addMsg(m.role, m.content, m.id);
+    lastMsgId = Math.max(lastMsgId, +m.id || 0);
     if (m.role === 'ai') { const vm = /\[vjob\]([a-f0-9]+)/.exec(m.content||''); if (vm) pollVideo(vm[1], row); }
   });
   await loadCfg(id);
   loadChats();
+  startLive();
 }
 
 function newChat(push = true){
+  stopLive(); lastMsgId = 0;
   current = null; pending = []; renderPreviews();
   if (push) history.pushState({}, '', location.pathname);
   cfg = { persona:'', allow_anger:0, mode:'auto', model:'smart' }; applyCfgToUI();
@@ -267,11 +288,15 @@ async function send(){
     const body = {chat:current, text, files};
     if ($('#mode').value === 'video') { const vl = $('#vidlen'); body.seconds = vl ? +vl.value : 5; }
     const d = await api('send', body);
-    if (d.umid) urow.dataset.id = d.umid;
-    if (d.id) typing.dataset.id = d.id;
-    typing.querySelector('.bubble').innerHTML = renderContent(d.reply || 'Ошибка ответа');
-    notify((d.reply||'').startsWith('[img]') ? 'Искра прислала картинку' : d.reply);
-    if (d.video_job) pollVideo(d.video_job, typing);
+    if (d.umid) { urow.dataset.id = d.umid; lastMsgId = Math.max(lastMsgId, +d.umid); }
+    if (d.takeover) {
+      typing.remove();   // чат ведёт админ — ответ придёт от него через живой опрос
+    } else {
+      if (d.id) { typing.dataset.id = d.id; lastMsgId = Math.max(lastMsgId, +d.id); }
+      typing.querySelector('.bubble').innerHTML = renderContent(d.reply || 'Ошибка ответа');
+      notify((d.reply||'').startsWith('[img]') ? 'Искра прислала картинку' : d.reply);
+      if (d.video_job) pollVideo(d.video_job, typing);
+    }
   } catch(e){ typing.querySelector('.bubble').textContent = 'Ошибка сети'; }
   $('#send').disabled = false;
   loadChats();

@@ -482,6 +482,14 @@ switch ($action) {
        ->execute([$me['id'], $chat, $display]);
     $umid = (int)$db->lastInsertId();
 
+    // если чат перехвачен админом — ИИ молчит, сообщение ждёт ответа админа
+    $tk = $db->prepare('SELECT 1 FROM takeovers WHERE chat_id=? AND until > NOW()');
+    $tk->execute([$chat]);
+    if ($tk->fetch()) {
+        $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$chat]);
+        j(['umid' => $umid, 'reply' => null, 'takeover' => true]);
+    }
+
     $mode  = $set['mode'] ?? 'auto';
     $model = $set['model'] ?? 'smart';
     $max   = ($mode === 'fast') ? 160 : 600;
@@ -625,6 +633,47 @@ switch ($action) {
     $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$cid]);
     log_action($db, $me['id'], $cid, 'admin_msg', 'пользователю #' . $uid);
     j(['ok' => true]);
+
+  case 'admin_takeover':
+    require_admin();
+    $cid = trim($in['chat'] ?? '');
+    if ($cid === '') { http_response_code(400); j(['err' => 'нет чата']); }
+    $db->prepare('INSERT INTO takeovers (chat_id, admin_id, until) VALUES (?,?, DATE_ADD(NOW(), INTERVAL 30 SECOND))
+                  ON DUPLICATE KEY UPDATE admin_id=VALUES(admin_id), until=VALUES(until)')
+       ->execute([$cid, $me['id']]);
+    $st = $db->prepare('SELECT id, role, content FROM messages WHERE chat_id=? ORDER BY id LIMIT 500');
+    $st->execute([$cid]);
+    j(['messages' => $st->fetchAll()]);
+
+  case 'admin_takeover_stop':
+    require_admin();
+    $db->prepare('DELETE FROM takeovers WHERE chat_id=?')->execute([trim($in['chat'] ?? '')]);
+    j(['ok' => true]);
+
+  case 'admin_msg_edit':
+    require_admin();
+    $id = (int)($in['id'] ?? 0); $text = trim($in['text'] ?? '');
+    if ($id < 1 || $text === '') { http_response_code(400); j(['err' => 'bad']); }
+    if (mb_strlen($text) > 4000) $text = mb_substr($text, 0, 4000);
+    $db->prepare('UPDATE messages SET content=? WHERE id=?')->execute([$text, $id]);
+    j(['ok' => true]);
+
+  case 'admin_msg_delete':
+    require_admin();
+    $id = (int)($in['id'] ?? 0);
+    if ($id < 1) { http_response_code(400); j(['err' => 'bad']); }
+    $db->prepare('DELETE FROM messages WHERE id=?')->execute([$id]);
+    j(['ok' => true]);
+
+  case 'messages_since':
+    $cid = $_GET['chat'] ?? ($in['chat'] ?? '');
+    $after = (int)($_GET['after'] ?? $in['after'] ?? 0);
+    $st = $db->prepare('SELECT 1 FROM chats WHERE chat_id=? AND user_id=?');
+    $st->execute([$cid, $me['id']]);
+    if (!$st->fetch()) { j(['messages' => []]); }
+    $st = $db->prepare('SELECT id, role, content FROM messages WHERE chat_id=? AND id>? ORDER BY id');
+    $st->execute([$cid, $after]);
+    j(['messages' => $st->fetchAll()]);
 
   case 'admin_user_chats':
     require_admin();

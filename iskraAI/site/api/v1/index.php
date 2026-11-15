@@ -102,7 +102,7 @@ function log_action(PDO $db, int $uid, string $chat, string $kind, string $detai
 }
 
 function chat_history(PDO $db, int $uid, string $chat, int $beforeId, int $limit = 8): string {
-    $st = $db->prepare('SELECT role, content FROM messages WHERE user_id=? AND chat_id=? AND id<? ORDER BY id DESC LIMIT ?');
+    $st = $db->prepare('SELECT role, content, by_admin FROM messages WHERE user_id=? AND chat_id=? AND id<? ORDER BY id DESC LIMIT ?');
     $st->bindValue(1, $uid, PDO::PARAM_INT);
     $st->bindValue(2, $chat);
     $st->bindValue(3, $beforeId, PDO::PARAM_INT);
@@ -111,7 +111,9 @@ function chat_history(PDO $db, int $uid, string $chat, int $beforeId, int $limit
     $rows = array_reverse($st->fetchAll());
     $lines = [];
     foreach ($rows as $r) {
-        $who = ($r['role'] === 'ai') ? 'Искра' : 'Пользователь';
+        if ($r['role'] === 'ai') {
+            $who = !empty($r['by_admin']) ? 'Искра (это сообщение написал оператор от твоего имени)' : 'Искра';
+        } else { $who = 'Пользователь'; }
         $c = preg_replace('~\[(img|video|audio|file)\]\S*~', '[вложение]', (string)$r['content']);
         $c = mb_substr(trim($c), 0, 400);
         if ($c !== '') $lines[] = $who . ': ' . $c;
@@ -675,7 +677,7 @@ switch ($action) {
         $cid = vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($b), 4));
         $db->prepare("INSERT INTO chats (chat_id, user_id, title) VALUES (?,?,'Сообщение от Искры')")->execute([$cid, $uid]);
     }
-    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')->execute([$uid, $cid, $text]);
+    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content, by_admin) VALUES (?,?,"ai",?,1)')->execute([$uid, $cid, $text]);
     $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$cid]);
     log_action($db, $me['id'], $cid, 'admin_msg', 'пользователю #' . $uid);
     j(['ok' => true]);
@@ -744,7 +746,7 @@ switch ($action) {
     $st = $db->prepare('SELECT user_id FROM chats WHERE chat_id=?'); $st->execute([$cid]);
     $owner = $st->fetchColumn();
     if (!$owner) { http_response_code(404); j(['err' => 'нет такого чата']); }
-    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')->execute([$owner, $cid, $text]);
+    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content, by_admin) VALUES (?,?,"ai",?,1)')->execute([$owner, $cid, $text]);
     $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$cid]);
     log_action($db, $me['id'], $cid, 'admin_msg', 'в чат пользователя #' . $owner);
     j(['ok' => true]);

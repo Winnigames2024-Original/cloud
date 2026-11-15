@@ -38,7 +38,7 @@ endif;
 <meta name="apple-mobile-web-app-title" content="Искра">
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
 <link rel="icon" href="/assets/icon-192.png">
-<link rel="stylesheet" href="/assets/app.css?v=21">
+<link rel="stylesheet" href="/assets/app.css?v=22">
 </head>
 <body>
 <?php if (!empty($_SESSION['imp_from'])): ?>
@@ -176,6 +176,28 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=21"></script>
+<?php if (is_admin($me)):
+  $siteVer = trim(@file_get_contents(($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . '/.version')) ?: '?'; ?>
+<div class="ver-badge">
+  v<?= htmlspecialchars($siteVer) ?>
+  <?php if (is_super($me)): ?><button id="console-btn">КОНСОЛЬ &amp; ЛОГИ</button><?php endif; ?>
+</div>
+<?php if (is_super($me)): ?>
+<div class="modal" id="console" hidden>
+  <div class="modal-box modal-wide">
+    <h3>Консоль &amp; логи <span style="color:var(--dim);font-weight:400;font-size:12px">(от www-data, таймаут 20с)</span></h3>
+    <pre id="con-out" class="con-out">Введи команду и нажми «Выполнить», или «Логи».</pre>
+    <div class="con-row">
+      <input id="con-cmd" placeholder="команда, напр. ls -la или systemctl status iskra-video" autocomplete="off">
+      <button id="con-run">Выполнить</button>
+      <button id="con-logs">Логи</button>
+    </div>
+    <div class="modal-actions"><button id="con-close">Закрыть</button></div>
+  </div>
+</div>
+<?php endif; ?>
+<?php endif; ?>
+
+<script src="/assets/app.js?v=22"></script>
 </body>
 </html>

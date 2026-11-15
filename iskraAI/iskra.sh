@@ -169,7 +169,7 @@ ALEOF
   chmod +x /usr/local/bin/iskra-antilag.sh
 
   cat > /etc/sudoers.d/iskra <<'SUEOF'
-www-data ALL=(root) NOPASSWD: /sbin/reboot, /sbin/poweroff, /usr/local/bin/iskra-antilag.sh
+www-data ALL=(root) NOPASSWD: /sbin/reboot, /sbin/poweroff, /usr/local/bin/iskra-antilag.sh, /usr/bin/journalctl
 SUEOF
   chmod 440 /etc/sudoers.d/iskra
 

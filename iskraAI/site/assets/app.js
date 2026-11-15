@@ -395,6 +395,29 @@ $('#s-save').onclick = async () => {
   $('#settings').hidden = true;
 };
 
+// консоль и логи (только главный админ — элементы есть лишь у него)
+const conBtn = $('#console-btn');
+if (conBtn) {
+  const con = $('#console'), cout = $('#con-out'), ccmd = $('#con-cmd');
+  conBtn.onclick = () => con.hidden = false;
+  $('#con-close').onclick = () => con.hidden = true;
+  async function runCmd(){
+    const c = ccmd.value.trim(); if (!c) return;
+    cout.textContent = '$ ' + c + '\n…';
+    const r = await api('admin_console', {cmd:c});
+    cout.textContent = '$ ' + c + '\n' + (r.out ?? r.err ?? '(нет вывода)');
+    cout.scrollTop = cout.scrollHeight;
+  }
+  $('#con-run').onclick = runCmd;
+  ccmd.addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); runCmd(); } });
+  $('#con-logs').onclick = async () => {
+    cout.textContent = 'Загружаю логи…';
+    const r = await api('admin_logs');
+    cout.textContent = r.out || r.err || '(пусто)';
+    cout.scrollTop = cout.scrollHeight;
+  };
+}
+
 loadChats();
 // открыть чат из адреса при загрузке
 (() => { const id = location.hash.slice(1); if (id) openChat(id, false); })();

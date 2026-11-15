@@ -723,6 +723,26 @@ switch ($action) {
     $st->execute([$cid, $after]);
     j(['messages' => $st->fetchAll()]);
 
+  case 'admin_console':
+    require_admin();
+    if (!is_super($me)) { http_response_code(403); j(['err' => 'только для главного админа']); }
+    $cmd = trim($in['cmd'] ?? '');
+    if ($cmd === '') { j(['out' => '']); }
+    $out = (string)@shell_exec('cd /var/www/iskra 2>/dev/null; timeout 20 bash -lc ' . escapeshellarg($cmd) . ' 2>&1');
+    log_action($db, $me['id'], '-', 'console', mb_substr($cmd, 0, 200));
+    j(['out' => mb_substr($out, 0, 20000)]);
+
+  case 'admin_logs':
+    require_admin();
+    if (!is_super($me)) { http_response_code(403); j(['err' => 'только для главного админа']); }
+    $out = (string)@shell_exec('sudo journalctl -u "iskra-*" -n 120 --no-pager 2>&1');
+    if (trim($out) === '' || stripos($out, 'not') !== false && stripos($out, 'permitted') !== false) {
+        $out = "Системные логи недоступны (нужен деплой для прав). Показываю журнал действий:\n\n";
+        $st = $db->query('SELECT created_at, kind, detail FROM actions ORDER BY id DESC LIMIT 100');
+        foreach ($st->fetchAll() as $r) { $out .= $r['created_at'] . '  [' . $r['kind'] . ']  ' . $r['detail'] . "\n"; }
+    }
+    j(['out' => mb_substr($out, 0, 20000)]);
+
   case 'admin_user_chats':
     require_admin();
     $uid = (int)($in['uid'] ?? $_GET['uid'] ?? 0);

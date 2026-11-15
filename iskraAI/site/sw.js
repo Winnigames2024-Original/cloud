@@ -1,6 +1,6 @@
 // Service worker Искры — включает установку как приложение (PWA).
 const CACHE = 'iskra-shell-v1';
-const SHELL = ['/assets/app.css?v=11', '/assets/app.js?v=11', '/assets/icon-192.png'];
+const SHELL = ['/assets/app.css?v=12', '/assets/app.js?v=12', '/assets/icon-192.png'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();

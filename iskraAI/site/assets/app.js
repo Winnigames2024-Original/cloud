@@ -21,6 +21,12 @@ $('#burger').onclick = () => app.classList.toggle('nosidebar');
 
 function esc(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
 
+// уведомления (когда вкладка свёрнута)
+function notify(text){
+  if (!('Notification' in window) || Notification.permission !== 'granted' || !document.hidden) return;
+  try { new Notification('Искра', { body: (text||'').slice(0,140) || 'Новый ответ', icon: '/assets/icon-192.png' }); } catch(_){}
+}
+
 function inlineFmt(s){
   return esc(s).replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
 }
@@ -204,6 +210,7 @@ $('#model').onchange = () => { cfg.model = $('#model').value; saveCfg(); };
 async function send(){
   const text = input.value.trim();
   if(!text && !pending.length) return;
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   if(!current){ current = crypto.randomUUID(); history.replaceState({id:current}, '', '#' + current); }
   const files = pending.slice(); pending = []; renderPreviews();
   input.value=''; input.style.height='auto';
@@ -217,6 +224,7 @@ async function send(){
     if (d.umid) urow.dataset.id = d.umid;
     if (d.id) typing.dataset.id = d.id;
     typing.querySelector('.bubble').innerHTML = renderContent(d.reply || 'Ошибка ответа');
+    notify((d.reply||'').startsWith('[img]') ? 'Искра прислала картинку' : d.reply);
   } catch(e){ typing.querySelector('.bubble').textContent = 'Ошибка сети'; }
   $('#send').disabled = false;
   loadChats();

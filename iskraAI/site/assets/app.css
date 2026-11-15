@@ -192,3 +192,14 @@ code.inline{background:var(--panel2);border:1px solid var(--line);border-radius:
 }
 /* крупные тап-цели и отключение подсветки тапа */
 button,.chat-item,.rb-file,.icon,a{-webkit-tap-highlight-color:transparent}
+
+/* ── фикс мобильных панелей: прячем за край, выезжают по кнопке ── */
+@media(max-width:720px){
+  .sidebar{position:fixed;left:0;top:0;height:100%;z-index:40;width:82vw;max-width:320px;
+    margin-left:0;transform:translateX(-100%);transition:transform .2s}
+  .app:not(.nosidebar) .sidebar{transform:translateX(0)}
+  .rightbar{position:fixed;right:0;top:0;height:100%;z-index:40;width:84vw;max-width:340px;
+    margin-right:0;transform:translateX(100%);transition:transform .2s}
+  .app.showfiles .rightbar{transform:translateX(0)}
+  .app:not(.nosidebar) .main,.app.showfiles .main{filter:brightness(.5)}
+}

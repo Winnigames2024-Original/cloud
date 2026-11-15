@@ -61,6 +61,9 @@ deploy_site(){
         --exclude 'inc/config.php' \
         --exclude 'schema.sql' \
         --exclude 'config.sample.php' \
+        --exclude 'gen/' \
+        --exclude 'files/' \
+        --exclude 'uploads/' \
         "$SITE_SRC"/ "$WEB_DIR"/
   chown -R www-data:www-data "$WEB_DIR"
   [ -f "$WEB_DIR/inc/config.php" ] && chmod 640 "$WEB_DIR/inc/config.php"
@@ -124,6 +127,8 @@ server {
     location ~ \.php\$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:$sock; }
     location /api/ { try_files \$uri \$uri/ /api/v1/index.php?\$query_string; }
     location ~ ^/chats/([A-Za-z0-9-]+) { rewrite ^ /share.php?c=\$1 last; }
+    location = /manifest.webmanifest { default_type application/manifest+json; }
+    location = /sw.js { default_type application/javascript; add_header Cache-Control "no-cache"; }
     location ~ /\.(?!well-known) { deny all; }
     location ^~ /inc/    { deny all; }
     location ^~ /vendor/ { deny all; }
@@ -146,6 +151,12 @@ EOF
 # ───────── доп-настройка: анти-лаг, права, часовой пояс, главный админ ─────────
 setup_extras(){
   timedatectl set-timezone Europe/Moscow 2>/dev/null || true
+
+  # постоянные сессии (чтобы аккаунт не вылетал)
+  mkdir -p /var/www/iskra-sessions && chown www-data:www-data /var/www/iskra-sessions && chmod 770 /var/www/iskra-sessions
+  # папки пользовательских данных (не стираются автодеплоем)
+  mkdir -p "$WEB_DIR/gen" "$WEB_DIR/files" "$WEB_DIR/uploads"
+  chown -R www-data:www-data "$WEB_DIR/gen" "$WEB_DIR/files" "$WEB_DIR/uploads"
 
   cat > /usr/local/bin/iskra-antilag.sh <<'ALEOF'
 #!/bin/bash

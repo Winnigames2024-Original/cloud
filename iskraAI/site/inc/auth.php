@@ -2,8 +2,10 @@
 require_once __DIR__ . '/db.php';
 
 if (session_status() === PHP_SESSION_NONE) {
+    $sp = '/var/www/iskra-sessions';
+    if (is_dir($sp) && is_writable($sp)) { session_save_path($sp); ini_set('session.gc_maxlifetime', '2592000'); }
     session_set_cookie_params([
-        'lifetime' => 0, 'path' => '/', 'httponly' => true,
+        'lifetime' => 2592000, 'path' => '/', 'httponly' => true,
         'samesite' => 'Lax', 'secure' => !empty($_SERVER['HTTPS']),
     ]);
     session_start();

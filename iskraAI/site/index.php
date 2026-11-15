@@ -153,6 +153,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=10"></script>
+<script src="/assets/app.js?v=15"></script>
 </body>
 </html>

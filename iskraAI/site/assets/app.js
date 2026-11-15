@@ -180,7 +180,11 @@ document.querySelectorAll('#model-menu .pick-item').forEach(el => el.onclick = e
 });
 document.addEventListener('click', () => { const m = $('#model-menu'); if (m) m.hidden = true; });
 
-function applyCfgToUI(){ $('#mode').value = cfg.mode||'auto'; setModelLabel(); }
+function toggleIdeas(){ const el = $('#ideas-args'); if (el) el.hidden = ($('#mode').value !== 'ideas'); }
+function applyCfgToUI(){ $('#mode').value = cfg.mode||'auto'; setModelLabel(); toggleIdeas(); }
+document.querySelectorAll('#ideas-args button').forEach(b => b.onclick = () => {
+  input.value = b.dataset.a; input.focus();
+});
 async function loadCfg(id){
   const d = await api('settings_get&chat=' + encodeURIComponent(id));
   cfg = { persona:d.persona||'', allow_anger:+d.allow_anger||0, mode:d.mode||'auto', model:d.model||'smart' };
@@ -217,7 +221,7 @@ window.addEventListener('popstate', () => {
   if (id) openChat(id, false); else newChat(false);
 });
 
-$('#mode').onchange  = () => { cfg.mode  = $('#mode').value;  saveCfg(); };
+$('#mode').onchange  = () => { cfg.mode  = $('#mode').value;  toggleIdeas(); saveCfg(); };
 
 async function pollVideo(job, row){
   for (let i = 0; i < 240; i++){            // до ~20 минут

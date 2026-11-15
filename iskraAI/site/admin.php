@@ -47,7 +47,7 @@ textarea{width:100%;min-height:90px;padding:10px;border-radius:9px;border:1px so
 
   <div class="panel">
     <h2>Системный промпт Искры</h2>
-    <p class="sub" style="color:var(--dim);font-size:13px;margin:0 0 10px">Добавляется ко всем ответам. Задаёт характер и правила по умолчанию.</p>
+    <p class="sub" style="color:var(--dim);font-size:13px;margin:0 0 10px">Применяется ко всем пользователям и всем чатам. Задаёт характер и правила Искры по умолчанию.</p>
     <textarea id="sys"></textarea>
     <button id="sys-save" style="width:auto;margin-top:12px;padding:9px 18px">Сохранить</button>
   </div>

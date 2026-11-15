@@ -420,7 +420,7 @@ switch ($action) {
     if ($chat === '') { http_response_code(400); j(['err' => 'nochat']); }
     $persona = mb_substr(trim($in['persona'] ?? ''), 0, 500);
     $anger   = !empty($in['allow_anger']) ? 1 : 0;
-    $mode    = in_array($in['mode'] ?? 'auto', ['auto','normal','code','fast','gen','voice','editimg','video','subs'], true) ? $in['mode'] : 'auto';
+    $mode    = in_array($in['mode'] ?? 'auto', ['auto','normal','code','fast','gen','voice','editimg','video','subs','ideas'], true) ? $in['mode'] : 'auto';
     $model   = in_array($in['model'] ?? 'smart', ['smart','own'], true) ? $in['model'] : 'smart';
     $db->prepare('INSERT INTO chats (chat_id, user_id, title, allow_anger, persona, mode, model) VALUES (?,?,?,?,?,?,?)
                   ON DUPLICATE KEY UPDATE allow_anger=VALUES(allow_anger), persona=VALUES(persona), mode=VALUES(mode), model=VALUES(model)')
@@ -493,6 +493,11 @@ switch ($action) {
         else $reply = 'Генерация видео не запущена. Проверь сервис video (Wan2.1) и VIDEO_URL в конфиге.';
     } elseif ($mode === 'subs') {
         $reply = 'Субтитры делаются к видео: нужно загрузить видео, распознать речь и наложить текст. Это отдельная настройка — сделаю вместе с видео.';
+    } elseif ($mode === 'ideas') {
+        $topic = $text !== '' ? $text : 'разное';
+        $reply = ai_reply('Придумай идеи по теме/платформе: ' . $topic,
+            'Ты генератор идей. Выдай список из 8 конкретных, разных и креативных идей строго по теме пользователя. Каждая идея — одна строка: короткое название и в скобках пояснение в несколько слов. Нумеруй 1–8. Только на русском, без вступления и воды.', 800);
+        log_action($db, $me['id'], $chat, 'ideas', mb_substr($topic, 0, 60));
     } elseif ($idA !== null) {
         $reply = $idA;
     } elseif ($delf !== null) {

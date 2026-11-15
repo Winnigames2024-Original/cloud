@@ -38,7 +38,7 @@ endif;
 <meta name="apple-mobile-web-app-title" content="Искра">
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
 <link rel="icon" href="/assets/icon-192.png">
-<link rel="stylesheet" href="/assets/app.css?v=17">
+<link rel="stylesheet" href="/assets/app.css?v=18">
 </head>
 <body>
 <?php if (!empty($_SESSION['imp_from'])): ?>
@@ -79,6 +79,16 @@ endif;
     </div>
 
     <div class="composer">
+      <div class="ideas-args" id="ideas-args" hidden>
+        <span class="ideas-lbl">Идеи для:</span>
+        <button type="button" data-a="Minecraft">Minecraft</button>
+        <button type="button" data-a="Roblox">Roblox</button>
+        <button type="button" data-a="мод для игры">Мод</button>
+        <button type="button" data-a="сайт">Сайт</button>
+        <button type="button" data-a="мобильное приложение">Приложение</button>
+        <button type="button" data-a="видео для соцсетей">Видео</button>
+        <button type="button" data-a="бизнес">Бизнес</button>
+      </div>
       <div class="attach-previews" id="previews"></div>
       <div class="composer-main">
         <textarea id="input" rows="1" placeholder="Сообщение Искре…"></textarea>
@@ -95,6 +105,7 @@ endif;
             <option value="voice">Озвучка</option>
             <option value="video">Видео</option>
             <option value="subs">Субтитры</option>
+            <option value="ideas">Генерация идей</option>
           </select>
           <div class="picker" id="model-picker">
             <button type="button" class="pick-btn" id="model-btn">Искра Про ▾</button>
@@ -153,6 +164,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=17"></script>
+<script src="/assets/app.js?v=18"></script>
 </body>
 </html>

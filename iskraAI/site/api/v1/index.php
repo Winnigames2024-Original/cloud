@@ -133,6 +133,17 @@ function tts_speak(string $text): ?string {
     return null;
 }
 
+function gen_video(string $prompt): ?string {
+    if (!defined('VIDEO_URL') || VIDEO_URL === '') return null;
+    $ch = curl_init(VIDEO_URL . '/gen');
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 600,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt], JSON_UNESCAPED_UNICODE)]);
+    $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['url'])) return $d['url']; }
+    return null;
+}
+
 function img_edit(string $path, string $prompt): ?string {
     if (!defined('IMAGE_URL') || IMAGE_URL === '') return null;
     $ch = curl_init(IMAGE_URL . '/edit');
@@ -457,7 +468,9 @@ switch ($action) {
         else { $url = img_edit($img, $text); if ($url) log_action($db, $me['id'], $chat, 'image', 'правка: ' . $text);
                $reply = $url ? '[img]' . $url : 'Не получилось изменить фото.'; }
     } elseif ($mode === 'video') {
-        $reply = 'Генерация и изменение видео локально на этой карте пока недоступны — нужен внешний API или более мощный GPU. Скажи, если готов подключить API для видео.';
+        $url = gen_video($text);
+        if ($url) log_action($db, $me['id'], $chat, 'video', mb_substr($text, 0, 60));
+        $reply = $url ? '[video]' . $url : 'Генерация видео не запущена или не удалась. Запусти сервис video (Wan2.1).';
     } elseif ($mode === 'subs') {
         $reply = 'Субтитры делаются к видео: нужно загрузить видео, распознать речь и наложить текст. Это отдельная настройка — сделаю вместе с видео.';
     } elseif ($delf !== null) {

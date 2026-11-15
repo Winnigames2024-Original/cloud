@@ -37,6 +37,7 @@ function renderText(text){
   lines.forEach(l => {
     if (l.startsWith('[img]')) { flush(); html += '<img class="genimg" src="' + esc(l.slice(5)) + '">'; }
     else if (l.startsWith('[audio]')) { flush(); html += '<audio class="genaudio" controls src="' + esc(l.slice(7)) + '"></audio>'; }
+    else if (l.startsWith('[video]')) { flush(); html += '<video class="genvideo" controls src="' + esc(l.slice(7)) + '"></video>'; }
     else if (l.startsWith('[file]')) { flush(); const p = l.slice(6).split('|');
       html += '<a class="filechip" href="' + esc(p[1]||'#') + '" target="_blank">📎 ' + esc(p[0]||'файл') + '</a>'; }
     else buf.push(l);

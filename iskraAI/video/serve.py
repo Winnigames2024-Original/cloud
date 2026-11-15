@@ -51,7 +51,7 @@ def _run(job: str, prompt: str):
             frames = pipe(
                 prompt=en,
                 negative_prompt="low quality, blurry, distorted, worst quality, static, watermark",
-                height=480, width=832, num_frames=49,     # ~3 сек при 16 fps — быстрее
+                height=480, width=832, num_frames=81,     # ~5 сек при 16 fps — максимум без перегруза
                 guidance_scale=5.0, num_inference_steps=25,
             ).frames[0]
             name = uuid.uuid4().hex + ".mp4"

@@ -101,6 +101,24 @@ function log_action(PDO $db, int $uid, string $chat, string $kind, string $detai
        ->execute([$uid, $chat, $kind, mb_substr($detail, 0, 500)]);
 }
 
+function chat_history(PDO $db, int $uid, string $chat, int $beforeId, int $limit = 8): string {
+    $st = $db->prepare('SELECT role, content FROM messages WHERE user_id=? AND chat_id=? AND id<? ORDER BY id DESC LIMIT ?');
+    $st->bindValue(1, $uid, PDO::PARAM_INT);
+    $st->bindValue(2, $chat);
+    $st->bindValue(3, $beforeId, PDO::PARAM_INT);
+    $st->bindValue(4, $limit, PDO::PARAM_INT);
+    $st->execute();
+    $rows = array_reverse($st->fetchAll());
+    $lines = [];
+    foreach ($rows as $r) {
+        $who = ($r['role'] === 'ai') ? 'Искра' : 'Пользователь';
+        $c = preg_replace('~\[(img|video|audio|file)\]\S*~', '[вложение]', (string)$r['content']);
+        $c = mb_substr(trim($c), 0, 400);
+        if ($c !== '') $lines[] = $who . ': ' . $c;
+    }
+    return implode("\n", $lines);
+}
+
 function own_chat(PDO $db, int $uid, string $chat): bool {
     $st = $db->prepare('SELECT 1 FROM chats WHERE chat_id=? AND user_id=?');
     $st->execute([$chat, $uid]);
@@ -554,7 +572,9 @@ switch ($action) {
             if ($reply !== null) log_action($db, $me['id'], $chat, 'web', $text);
         }
         if ($reply === null) {
-            $prompt = $text . $modelExtra;
+            $hist = chat_history($db, $me['id'], $chat, $umid, 8);
+            $prompt = ($hist !== '' ? "Предыдущий разговор:\n" . $hist . "\n\n" : '')
+                    . "Пользователь: " . $text . $modelExtra;
             $reply = ($model === 'own')
                 ? own_reply($prompt, build_system($set), $max)
                 : ai_reply($prompt, build_system($set), $max);

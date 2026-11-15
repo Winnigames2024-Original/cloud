@@ -6,7 +6,7 @@ let pending = [];   // прикреплённые файлы, ещё не отп
 
 const api = (a, body) => fetch('/api/v1/index.php?action=' + a,
   body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {})
-  .then(r => r.json());
+  .then(r => { if (r.status === 401) { location.href = '/login.php'; throw new Error('auth'); } return r.json(); });
 
 // ── темы ──
 const THEMES = ['dark', 'light', 'violet', 'ocean'];

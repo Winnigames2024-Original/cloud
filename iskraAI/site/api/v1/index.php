@@ -364,11 +364,25 @@ switch ($action) {
     $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
     $dir = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . '/files/' . $cid;
     $out = [];
+    $seen = [];
     if (is_dir($dir)) foreach (scandir($dir) as $f) {
         if ($f[0] === '.') continue;
         $p = "$dir/$f";
-        if (is_file($p)) $out[] = ['name' => $f, 'size' => filesize($p),
-            'img' => (bool)preg_match('~\.(png|jpe?g|gif|webp)$~i', $f), 'url' => '/files/' . $cid . '/' . $f];
+        if (is_file($p)) { $u = '/files/' . $cid . '/' . $f; $seen[$u] = 1;
+            $out[] = ['name' => $f, 'size' => filesize($p),
+                'img' => (bool)preg_match('~\.(png|jpe?g|gif|webp)$~i', $f), 'url' => $u]; }
+    }
+    // плюс сгенерированное в этом чате (картинки/видео/аудио из сообщений)
+    $st = $db->prepare('SELECT content FROM messages WHERE chat_id=? ORDER BY id');
+    $st->execute([$chat]);
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $c) {
+        if (preg_match_all('~\[(img|video|audio)\](/[^\s|]+)~', (string)$c, $mm, PREG_SET_ORDER)) {
+            foreach ($mm as $m) {
+                $u = $m[2]; if (isset($seen[$u])) continue; $seen[$u] = 1;
+                $out[] = ['name' => basename($u), 'size' => 0,
+                    'img' => ($m[1] === 'img'), 'url' => $u];
+            }
+        }
     }
     j(['files' => $out]);
 

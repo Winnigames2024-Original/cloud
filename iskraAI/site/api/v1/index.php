@@ -605,6 +605,27 @@ switch ($action) {
     foreach ($rows as &$r) { $r['super'] = is_super($r) ? 1 : 0; }
     j(['users' => $rows, 'me' => $me['id'], 'imp' => !empty($_SESSION['imp_from'])]);
 
+  case 'admin_message':
+    require_admin();
+    $uid = (int)($in['uid'] ?? 0);
+    $text = trim($in['text'] ?? '');
+    if ($uid < 1 || $text === '') { http_response_code(400); j(['err' => 'нужен пользователь и текст']); }
+    if (mb_strlen($text) > 4000) $text = mb_substr($text, 0, 4000);
+    $st = $db->prepare('SELECT id FROM users WHERE id=?'); $st->execute([$uid]);
+    if (!$st->fetch()) { http_response_code(404); j(['err' => 'нет пользователя']); }
+    $st = $db->prepare("SELECT chat_id FROM chats WHERE user_id=? AND title='Сообщение от Искры' ORDER BY id DESC LIMIT 1");
+    $st->execute([$uid]);
+    $cid = $st->fetchColumn();
+    if (!$cid) {
+        $b = random_bytes(16); $b[6] = chr((ord($b[6]) & 0x0f) | 0x40); $b[8] = chr((ord($b[8]) & 0x3f) | 0x80);
+        $cid = vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($b), 4));
+        $db->prepare("INSERT INTO chats (chat_id, user_id, title) VALUES (?,?,'Сообщение от Искры')")->execute([$cid, $uid]);
+    }
+    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')->execute([$uid, $cid, $text]);
+    $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$cid]);
+    log_action($db, $me['id'], $cid, 'admin_msg', 'пользователю #' . $uid);
+    j(['ok' => true]);
+
   case 'admin_role':
     require_admin();
     $uid = (int)($in['uid'] ?? 0); $role = ($in['role'] ?? '') === 'admin' ? 'admin' : 'user';

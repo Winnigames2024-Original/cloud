@@ -53,6 +53,16 @@ textarea{width:100%;min-height:90px;padding:10px;border-radius:9px;border:1px so
   </div>
 
   <div class="panel">
+    <h2>Написать пользователю от Искры</h2>
+    <p class="sub" style="color:var(--dim);font-size:13px;margin:0 0 12px">Сообщение придёт выбранному пользователю в чат «Сообщение от Искры» как ответ ИИ.</p>
+    <div class="row2" style="margin-bottom:10px">
+      <select id="msg-user" style="padding:9px;border-radius:9px;border:1px solid var(--line);background:#0d1117;color:var(--text);font:inherit;min-width:220px"></select>
+    </div>
+    <textarea id="msg-text" placeholder="Текст сообщения от Искры…"></textarea>
+    <button id="msg-send" style="width:auto;margin-top:12px;padding:9px 18px">Отправить</button>
+  </div>
+
+  <div class="panel">
     <h2>Производительность</h2>
     <p class="sub" style="color:var(--dim);font-size:13px;margin:0 0 12px">Освобождает память и перезапускает тяжёлые сервисы (картинки, Qwen), снимая нагрузку с GPU.</p>
     <button id="antilag" style="width:auto;padding:9px 18px">⚡ Анти-лаг</button>
@@ -105,6 +115,9 @@ async function loadUsers(){
     tr.innerHTML = '<td>'+esc(u.nick)+'</td><td>'+esc(u.email)+'</td><td>'+(tags||'—')+'</td><td class="act">'+acts+'</td>';
     tb.appendChild(tr);
   });
+  const sel = document.getElementById('msg-user');
+  if (sel) { sel.innerHTML = ''; (d.users||[]).forEach(u => {
+    const o = document.createElement('option'); o.value = u.id; o.textContent = u.nick + ' (' + u.email + ')'; sel.appendChild(o); }); }
   tb.querySelectorAll('button').forEach(b => b.onclick = async () => {
     const a = b.dataset.a, uid = +b.dataset.u;
     if (a==='admin_del' && !confirm('Удалить этот аккаунт навсегда?')) return;
@@ -134,6 +147,15 @@ document.getElementById('maint-save').onclick = async () => {
 document.getElementById('sys-save').onclick = async () => {
   await api('admin_sys_set', {prompt: document.getElementById('sys').value});
   alert('Сохранено');
+};
+document.getElementById('msg-send').onclick = async () => {
+  const uid = +document.getElementById('msg-user').value;
+  const text = document.getElementById('msg-text').value.trim();
+  if (!uid || !text) { alert('Выбери пользователя и напиши текст'); return; }
+  const r = await api('admin_message', {uid, text});
+  if (r.err) { alert(r.err); return; }
+  document.getElementById('msg-text').value = '';
+  alert('Отправлено');
 };
 document.getElementById('antilag').onclick = async () => {
   const b = document.getElementById('antilag'); b.disabled = true; b.textContent = 'Чищу…';

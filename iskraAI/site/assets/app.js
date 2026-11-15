@@ -38,6 +38,7 @@ function renderText(text){
     if (l.startsWith('[img]')) { flush(); html += '<img class="genimg" src="' + esc(l.slice(5)) + '">'; }
     else if (l.startsWith('[audio]')) { flush(); html += '<audio class="genaudio" controls src="' + esc(l.slice(7)) + '"></audio>'; }
     else if (l.startsWith('[video]')) { flush(); html += '<video class="genvideo" controls src="' + esc(l.slice(7)) + '"></video>'; }
+    else if (l.startsWith('[vjob]')) { /* маркер фоновой задачи видео — не показываем */ }
     else if (l.startsWith('[file]')) { flush(); const p = l.slice(6).split('|');
       html += '<a class="filechip" href="' + esc(p[1]||'#') + '" target="_blank">📎 ' + esc(p[0]||'файл') + '</a>'; }
     else buf.push(l);
@@ -180,7 +181,11 @@ document.querySelectorAll('#model-menu .pick-item').forEach(el => el.onclick = e
 });
 document.addEventListener('click', () => { const m = $('#model-menu'); if (m) m.hidden = true; });
 
-function toggleIdeas(){ const el = $('#ideas-args'); if (el) el.hidden = ($('#mode').value !== 'ideas'); }
+function toggleIdeas(){
+  const m = $('#mode').value;
+  const a = $('#ideas-args'); if (a) a.hidden = (m !== 'ideas');
+  const v = $('#vid-len');    if (v) v.hidden = (m !== 'video');
+}
 function applyCfgToUI(){ $('#mode').value = cfg.mode||'auto'; setModelLabel(); toggleIdeas(); }
 document.querySelectorAll('#ideas-args button').forEach(b => b.onclick = () => {
   input.value = b.dataset.a; input.focus();
@@ -201,7 +206,10 @@ async function openChat(id, push = true){
   if(isMobile()) app.classList.add('nosidebar');
   const d = await api('history&chat='+encodeURIComponent(id));
   msgs.innerHTML='';
-  (d.messages||[]).forEach(m => addMsg(m.role, m.content, m.id));
+  (d.messages||[]).forEach(m => {
+    const row = addMsg(m.role, m.content, m.id);
+    if (m.role === 'ai') { const vm = /\[vjob\]([a-f0-9]+)/.exec(m.content||''); if (vm) pollVideo(vm[1], row); }
+  });
   await loadCfg(id);
   loadChats();
 }
@@ -224,9 +232,12 @@ window.addEventListener('popstate', () => {
 $('#mode').onchange  = () => { cfg.mode  = $('#mode').value;  toggleIdeas(); saveCfg(); };
 
 async function pollVideo(job, row){
-  for (let i = 0; i < 240; i++){            // до ~20 минут
+  for (let i = 0; i < 3600; i++){           // до ~5 часов (длинное видео)
     await new Promise(r => setTimeout(r, 5000));
     let s; try { s = await api('video_status&job=' + encodeURIComponent(job)); } catch(e){ continue; }
+    if (s.state === 'pending' && s.total > 1){
+      row.querySelector('.bubble').textContent = '⏳ Собираю видео… клип ' + (s.done||0) + '/' + s.total;
+    }
     if (s.state === 'done' && s.url){
       row.querySelector('.bubble').innerHTML = renderContent('[video]' + s.url);
       if (row.dataset.id) api('video_save', {id:+row.dataset.id, url:s.url});
@@ -253,7 +264,9 @@ async function send(){
   const typing = addMsg('ai', '…');
   $('#send').disabled = true;
   try {
-    const d = await api('send', {chat:current, text, files});
+    const body = {chat:current, text, files};
+    if ($('#mode').value === 'video') { const vl = $('#vidlen'); body.seconds = vl ? +vl.value : 5; }
+    const d = await api('send', body);
     if (d.umid) urow.dataset.id = d.umid;
     if (d.id) typing.dataset.id = d.id;
     typing.querySelector('.bubble').innerHTML = renderContent(d.reply || 'Ошибка ответа');

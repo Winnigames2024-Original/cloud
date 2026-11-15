@@ -151,12 +151,12 @@ function tts_speak(string $text): ?string {
     return null;
 }
 
-function video_submit(string $prompt): ?string {
+function video_submit(string $prompt, int $seconds = 5): ?string {
     if (!defined('VIDEO_URL') || VIDEO_URL === '') return null;
     $ch = curl_init(VIDEO_URL . '/gen');
     curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt], JSON_UNESCAPED_UNICODE)]);
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt, 'seconds' => $seconds], JSON_UNESCAPED_UNICODE)]);
     $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['job'])) return $d['job']; }
     return null;
@@ -505,9 +505,15 @@ switch ($action) {
         else { $url = img_edit($img, $text); if ($url) log_action($db, $me['id'], $chat, 'image', 'правка: ' . $text);
                $reply = $url ? '[img]' . $url : 'Не получилось изменить фото.'; }
     } elseif ($mode === 'video') {
-        $videoJob = video_submit($text);
-        if ($videoJob) { log_action($db, $me['id'], $chat, 'video', mb_substr($text, 0, 60));
-            $reply = '⏳ Генерирую видео по запросу «' . mb_substr($text, 0, 80) . '». Это несколько минут (первый ролик дольше — качается модель). Можно не ждать на этой странице.'; }
+        $secs = (int)($in['seconds'] ?? 5);
+        $secs = max(5, min(300, $secs));
+        $videoJob = video_submit($text, $secs);
+        if ($videoJob) { log_action($db, $me['id'], $chat, 'video', mb_substr($text, 0, 60) . ' (' . $secs . 'с)');
+            $clips = (int)ceil($secs / 5);
+            $reply = $clips > 1
+                ? '⏳ Собираю длинное видео ~' . $secs . ' сек (' . $clips . ' клипов по очереди). Это долго — десятки минут или часы. Можно уйти со страницы, результат подставится сам.'
+                : '⏳ Генерирую видео (~5 сек). Несколько минут (первый ролик дольше — качается модель).';
+            $reply .= "\n[vjob]" . $videoJob; }
         else $reply = 'Генерация видео не запущена. Проверь сервис video (Wan2.1) и VIDEO_URL в конфиге.';
     } elseif ($mode === 'subs') {
         $reply = 'Субтитры делаются к видео: нужно загрузить видео, распознать речь и наложить текст. Это отдельная настройка — сделаю вместе с видео.';

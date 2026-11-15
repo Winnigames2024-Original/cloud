@@ -38,7 +38,7 @@ endif;
 <meta name="apple-mobile-web-app-title" content="Искра">
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
 <link rel="icon" href="/assets/icon-192.png">
-<link rel="stylesheet" href="/assets/app.css?v=18">
+<link rel="stylesheet" href="/assets/app.css?v=19">
 </head>
 <body>
 <?php if (!empty($_SESSION['imp_from'])): ?>
@@ -79,6 +79,18 @@ endif;
     </div>
 
     <div class="composer">
+      <div class="vid-len" id="vid-len" hidden>
+        <span class="ideas-lbl">Длина видео:</span>
+        <select id="vidlen" class="barsel">
+          <option value="5">5 сек</option>
+          <option value="15">15 сек</option>
+          <option value="30">30 сек</option>
+          <option value="60">1 мин</option>
+          <option value="120">2 мин</option>
+          <option value="300">5 мин</option>
+        </select>
+        <span class="vid-note">длиннее 5 сек — склейка клипов, долго</span>
+      </div>
       <div class="ideas-args" id="ideas-args" hidden>
         <span class="ideas-lbl">Идеи для:</span>
         <button type="button" data-a="Minecraft">Minecraft</button>
@@ -164,6 +176,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=18"></script>
+<script src="/assets/app.js?v=19"></script>
 </body>
 </html>

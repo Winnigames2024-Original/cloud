@@ -77,9 +77,13 @@ function kb_lookup(string $q): ?string {
 
 // Распознаёт просьбу нарисовать и достаёт промпт после глагола.
 function draw_prompt(string $q): ?string {
-    if (preg_match('~^\s*(?:нарисуй|сгенерируй|создай|generate|draw)\b\s*(?:мне\s+)?(?:картинк\w+|изображени\w+|рисунок|фото|арт)?\s*(?:с\s+|про\s+)?(.+)~ui', $q, $m)) {
-        $p = trim($m[1], " \t\n:,.\"'«»");
-        return mb_strlen($p) >= 2 ? $p : null;
+    // явные «нарисуй …» / «draw …»
+    if (preg_match('~^\s*(?:нарисуй|нарисовать|draw)\s+(.+)~ui', $q, $m)) {
+        $p = trim($m[1], " \t\n:,.\"'«»"); return mb_strlen($p) >= 2 ? $p : null;
+    }
+    // «сделай/создай/сгенерируй картинку|фото|… [про] …»
+    if (preg_match('~(?:сделай|сделать|создай|сгенерируй|сгенерировать|generate)\s+(?:мне\s+)?(?:картинк\w+|изображени\w+|рисунок|фото|арт|пикч\w+)\s*(?:с\s+|про\s+|где\s+)?(.*)~ui', $q, $m)) {
+        $p = trim($m[1], " \t\n:,.\"'«»"); return $p !== '' ? $p : 'красивая картинка';
     }
     return null;
 }
@@ -363,7 +367,7 @@ switch ($action) {
     if ($chat === '') { http_response_code(400); j(['err' => 'nochat']); }
     $persona = mb_substr(trim($in['persona'] ?? ''), 0, 500);
     $anger   = !empty($in['allow_anger']) ? 1 : 0;
-    $mode    = in_array($in['mode'] ?? 'auto', ['auto','normal','code','fast'], true) ? $in['mode'] : 'auto';
+    $mode    = in_array($in['mode'] ?? 'auto', ['auto','normal','code','fast','gen'], true) ? $in['mode'] : 'auto';
     $model   = in_array($in['model'] ?? 'smart', ['smart','own'], true) ? $in['model'] : 'smart';
     $db->prepare('INSERT INTO chats (chat_id, user_id, title, allow_anger, persona, mode, model) VALUES (?,?,?,?,?,?,?)
                   ON DUPLICATE KEY UPDATE allow_anger=VALUES(allow_anger), persona=VALUES(persona), mode=VALUES(mode), model=VALUES(model)')
@@ -461,6 +465,11 @@ switch ($action) {
         $url = gen_image($dp);
         if ($url) log_action($db, $me['id'], $chat, 'image', $dp);
         $reply = $url ? '[img]' . $url : 'Не получилось нарисовать — генератор картинок ещё не запущен.';
+    } elseif ($mode === 'gen') {
+        // режим генерации: любое сообщение — промпт для картинки
+        $url = gen_image($text);
+        if ($url) log_action($db, $me['id'], $chat, 'image', $text);
+        $reply = $url ? '[img]' . $url : 'Генератор картинок не запущен.';
     } else {
         $reply = kb_lookup($text);
         if ($reply !== null) log_action($db, $me['id'], $chat, 'wiki', $text);

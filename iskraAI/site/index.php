@@ -90,6 +90,7 @@ endif;
             <option value="normal">Обычный</option>
             <option value="code">Экстра · код</option>
             <option value="fast">Быстрый</option>
+            <option value="gen">Генерация · фото</option>
           </select>
           <select id="model" class="barsel" title="Модель">
             <option value="smart">Искра Про</option>

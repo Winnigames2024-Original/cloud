@@ -176,9 +176,7 @@ SUEOF
   # главный админ по почте владельца
   local cfg="$WEB_DIR/inc/config.php"
   if [ -f "$cfg" ]; then
-    grep -q TTS_URL "$cfg"   || echo "define('TTS_URL', 'http://127.0.0.1:2449');"   >> "$cfg"
-    grep -q IMAGE_URL "$cfg" || echo "define('IMAGE_URL', 'http://127.0.0.1:2447');" >> "$cfg"
-    grep -q VIDEO_URL "$cfg" || echo "define('VIDEO_URL', 'http://127.0.0.1:2451');" >> "$cfg"
+    ensure_config_urls
     if grep -q OWNER_EMAIL "$cfg"; then
       sed -i "s|define('OWNER_EMAIL'.*|define('OWNER_EMAIL', 'winnigames2024@gmail.com');|" "$cfg"
     else
@@ -222,6 +220,15 @@ EOF
 ensure_repo
 self_update
 
+# дописывает адреса локальных сервисов в конфиг, если их там ещё нет
+ensure_config_urls(){
+  local cfg="$WEB_DIR/inc/config.php"
+  [ -f "$cfg" ] || return 0
+  grep -q TTS_URL "$cfg"   || echo "define('TTS_URL', 'http://127.0.0.1:2449');"   >> "$cfg"
+  grep -q IMAGE_URL "$cfg" || echo "define('IMAGE_URL', 'http://127.0.0.1:2447');" >> "$cfg"
+  grep -q VIDEO_URL "$cfg" || echo "define('VIDEO_URL', 'http://127.0.0.1:2451');" >> "$cfg"
+}
+
 apply_schema(){
   if [ -f "$SITE_SRC/schema.sql" ] && mysql -e "USE iskra" 2>/dev/null; then
     mysql iskra < "$SITE_SRC/schema.sql" 2>/dev/null && log "схема БД синхронизирована"
@@ -241,6 +248,7 @@ case "$MODE" in
     if [ -n "$new" ] && [ "$new" != "$cur" ]; then
       deploy_site
       apply_schema
+      ensure_config_urls
       echo "$new" > "$WEB_DIR/.version"
       log "обновлено до версии $new"
     fi

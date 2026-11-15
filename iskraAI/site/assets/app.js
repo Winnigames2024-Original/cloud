@@ -167,7 +167,18 @@ async function loadChats(){
   });
 }
 
-function applyCfgToUI(){ $('#mode').value = cfg.mode||'auto'; $('#model').value = cfg.model||'smart'; }
+const MODEL_NAMES = { smart: 'Искра Про', own: 'Искра Базовая' };
+function setModelLabel(){
+  $('#model-btn').textContent = (MODEL_NAMES[cfg.model] || 'Модель') + ' ▾';
+  document.querySelectorAll('#model-menu .pick-item').forEach(el => el.classList.toggle('on', el.dataset.v === cfg.model));
+}
+$('#model-btn').onclick = e => { e.stopPropagation(); const m = $('#model-menu'); m.hidden = !m.hidden; };
+document.querySelectorAll('#model-menu .pick-item').forEach(el => el.onclick = e => {
+  e.stopPropagation(); cfg.model = el.dataset.v; setModelLabel(); $('#model-menu').hidden = true; saveCfg();
+});
+document.addEventListener('click', () => { const m = $('#model-menu'); if (m) m.hidden = true; });
+
+function applyCfgToUI(){ $('#mode').value = cfg.mode||'auto'; setModelLabel(); }
 async function loadCfg(id){
   const d = await api('settings_get&chat=' + encodeURIComponent(id));
   cfg = { persona:d.persona||'', allow_anger:+d.allow_anger||0, mode:d.mode||'auto', model:d.model||'smart' };
@@ -205,7 +216,6 @@ window.addEventListener('popstate', () => {
 });
 
 $('#mode').onchange  = () => { cfg.mode  = $('#mode').value;  saveCfg(); };
-$('#model').onchange = () => { cfg.model = $('#model').value; saveCfg(); };
 
 async function send(){
   const text = input.value.trim();

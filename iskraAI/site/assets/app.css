@@ -203,3 +203,15 @@ button,.chat-item,.rb-file,.icon,a{-webkit-tap-highlight-color:transparent}
   .app.showfiles .rightbar{transform:translateX(0)}
   .app:not(.nosidebar) .main,.app.showfiles .main{filter:brightness(.5)}
 }
+
+/* выбор модели в стиле Claude/ChatGPT */
+.picker{position:relative}
+.pick-btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.pick-btn:hover{border-color:var(--accent)}
+.pick-menu{position:absolute;bottom:calc(100% + 6px);left:0;min-width:230px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 10px 34px rgba(0,0,0,.55);z-index:60}
+.pick-menu[hidden]{display:none}
+.pick-item{padding:9px 10px;border-radius:9px;cursor:pointer}
+.pick-item:hover,.pick-item.on{background:var(--panel2)}
+.pi-name{font-size:14px;font-weight:600}
+.pick-item.on .pi-name::after{content:' ✓';color:var(--accent)}
+.pi-desc{font-size:12px;color:var(--dim);margin-top:1px}

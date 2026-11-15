@@ -626,6 +626,34 @@ switch ($action) {
     log_action($db, $me['id'], $cid, 'admin_msg', 'пользователю #' . $uid);
     j(['ok' => true]);
 
+  case 'admin_user_chats':
+    require_admin();
+    $uid = (int)($in['uid'] ?? $_GET['uid'] ?? 0);
+    $st = $db->prepare('SELECT chat_id, title, updated_at FROM chats WHERE user_id=? ORDER BY updated_at DESC LIMIT 300');
+    $st->execute([$uid]);
+    j(['chats' => $st->fetchAll()]);
+
+  case 'admin_chat_messages':
+    require_admin();
+    $cid = $_GET['chat'] ?? ($in['chat'] ?? '');
+    $st = $db->prepare('SELECT id, role, content FROM messages WHERE chat_id=? ORDER BY id LIMIT 500');
+    $st->execute([$cid]);
+    j(['messages' => $st->fetchAll()]);
+
+  case 'admin_chat_send':
+    require_admin();
+    $cid = trim($in['chat'] ?? '');
+    $text = trim($in['text'] ?? '');
+    if ($cid === '' || $text === '') { http_response_code(400); j(['err' => 'нужен чат и текст']); }
+    if (mb_strlen($text) > 4000) $text = mb_substr($text, 0, 4000);
+    $st = $db->prepare('SELECT user_id FROM chats WHERE chat_id=?'); $st->execute([$cid]);
+    $owner = $st->fetchColumn();
+    if (!$owner) { http_response_code(404); j(['err' => 'нет такого чата']); }
+    $db->prepare('INSERT INTO messages (user_id, chat_id, role, content) VALUES (?,?,"ai",?)')->execute([$owner, $cid, $text]);
+    $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$cid]);
+    log_action($db, $me['id'], $cid, 'admin_msg', 'в чат пользователя #' . $owner);
+    j(['ok' => true]);
+
   case 'admin_role':
     require_admin();
     $uid = (int)($in['uid'] ?? 0); $role = ($in['role'] ?? '') === 'admin' ? 'admin' : 'user';

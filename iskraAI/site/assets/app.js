@@ -219,6 +219,23 @@ window.addEventListener('popstate', () => {
 
 $('#mode').onchange  = () => { cfg.mode  = $('#mode').value;  saveCfg(); };
 
+async function pollVideo(job, row){
+  for (let i = 0; i < 240; i++){            // до ~20 минут
+    await new Promise(r => setTimeout(r, 5000));
+    let s; try { s = await api('video_status&job=' + encodeURIComponent(job)); } catch(e){ continue; }
+    if (s.state === 'done' && s.url){
+      row.querySelector('.bubble').innerHTML = renderContent('[video]' + s.url);
+      if (row.dataset.id) api('video_save', {id:+row.dataset.id, url:s.url});
+      notify('Видео готово'); loadChats(); return;
+    }
+    if (s.state === 'error'){
+      row.querySelector('.bubble').textContent = 'Не удалось сгенерировать видео: ' + (s.err || '');
+      return;
+    }
+  }
+  row.querySelector('.bubble').textContent = 'Видео генерируется дольше обычного — загляни в чат чуть позже.';
+}
+
 async function send(){
   const text = input.value.trim();
   if(!text && !pending.length) return;
@@ -237,6 +254,7 @@ async function send(){
     if (d.id) typing.dataset.id = d.id;
     typing.querySelector('.bubble').innerHTML = renderContent(d.reply || 'Ошибка ответа');
     notify((d.reply||'').startsWith('[img]') ? 'Искра прислала картинку' : d.reply);
+    if (d.video_job) pollVideo(d.video_job, typing);
   } catch(e){ typing.querySelector('.bubble').textContent = 'Ошибка сети'; }
   $('#send').disabled = false;
   loadChats();

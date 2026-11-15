@@ -133,15 +133,24 @@ function tts_speak(string $text): ?string {
     return null;
 }
 
-function gen_video(string $prompt): ?string {
+function video_submit(string $prompt): ?string {
     if (!defined('VIDEO_URL') || VIDEO_URL === '') return null;
     $ch = curl_init(VIDEO_URL . '/gen');
-    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 600,
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
         CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt], JSON_UNESCAPED_UNICODE)]);
     $r = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['url'])) return $d['url']; }
+    if ($code >= 200 && $code < 300) { $d = json_decode($r, true); if (!empty($d['job'])) return $d['job']; }
     return null;
+}
+
+function video_status_fetch(string $job): array {
+    if (!defined('VIDEO_URL') || VIDEO_URL === '') return ['state' => 'unknown'];
+    $ch = curl_init(VIDEO_URL . '/status?job=' . rawurlencode($job));
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+    $r = curl_exec($ch); curl_close($ch);
+    $d = json_decode($r ?: '', true);
+    return is_array($d) ? $d : ['state' => 'unknown'];
 }
 
 function img_edit(string $path, string $prompt): ?string {
@@ -368,6 +377,17 @@ switch ($action) {
     if (is_file($p)) @unlink($p);
     j(['ok' => true]);
 
+  case 'video_status':
+    j(video_status_fetch($_GET['job'] ?? ''));
+
+  case 'video_save':
+    $id  = (int)($in['id'] ?? 0);
+    $url = trim($in['url'] ?? '');
+    if ($id < 1 || !preg_match('~^/gen/[a-f0-9]+\.mp4$~', $url)) { http_response_code(400); j(['err' => 'bad']); }
+    $db->prepare('UPDATE messages SET content=? WHERE id=? AND user_id=? AND role="ai"')
+       ->execute(['[video]' . $url, $id, $me['id']]);
+    j(['ok' => true]);
+
   case 'msg_edit':
     $id = (int)($in['id'] ?? 0);
     $text = trim($in['text'] ?? '');
@@ -454,6 +474,7 @@ switch ($action) {
 
     $fr = file_request($text);
     $delf = del_file_request($text);
+    $videoJob = null;
 
     if ($idA !== null) {
         $reply = $idA;
@@ -468,9 +489,10 @@ switch ($action) {
         else { $url = img_edit($img, $text); if ($url) log_action($db, $me['id'], $chat, 'image', 'правка: ' . $text);
                $reply = $url ? '[img]' . $url : 'Не получилось изменить фото.'; }
     } elseif ($mode === 'video') {
-        $url = gen_video($text);
-        if ($url) log_action($db, $me['id'], $chat, 'video', mb_substr($text, 0, 60));
-        $reply = $url ? '[video]' . $url : 'Генерация видео не запущена или не удалась. Запусти сервис video (Wan2.1).';
+        $videoJob = video_submit($text);
+        if ($videoJob) { log_action($db, $me['id'], $chat, 'video', mb_substr($text, 0, 60));
+            $reply = '⏳ Генерирую видео по запросу «' . mb_substr($text, 0, 80) . '». Это несколько минут (первый ролик дольше — качается модель). Можно не ждать на этой странице.'; }
+        else $reply = 'Генерация видео не запущена. Проверь сервис video (Wan2.1) и VIDEO_URL в конфиге.';
     } elseif ($mode === 'subs') {
         $reply = 'Субтитры делаются к видео: нужно загрузить видео, распознать речь и наложить текст. Это отдельная настройка — сделаю вместе с видео.';
     } elseif ($delf !== null) {
@@ -537,7 +559,7 @@ switch ($action) {
        ->execute([$me['id'], $chat, $reply]);
     $mid = (int)$db->lastInsertId();
     $db->prepare('UPDATE chats SET updated_at=NOW() WHERE chat_id=?')->execute([$chat]);
-    j(['umid' => $umid, 'reply' => $reply, 'id' => $mid]);
+    j(['umid' => $umid, 'reply' => $reply, 'id' => $mid, 'video_job' => $videoJob]);
 
   case 'delete':
     $db->prepare('DELETE FROM chats WHERE chat_id=? AND user_id=?')->execute([$in['chat'] ?? '', $me['id']]);

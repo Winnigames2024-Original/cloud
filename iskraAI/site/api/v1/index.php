@@ -140,6 +140,27 @@ function make_file(string $chat, string $name, string $content): ?string {
     return $name;
 }
 
+// Безопасный запуск файла ТОЛЬКО из папки этого чата. Работает от www-data (не root),
+// только .py/.js, таймаут 10 сек, вывод обрезается. Для ARG/тестов, не для чужих файлов.
+function run_chat_file(string $chat, string $name): string {
+    $cid = preg_replace('~[^A-Za-z0-9\-_]~', '', $chat);
+    $name = basename($name);
+    $p = ($_SERVER['DOCUMENT_ROOT'] ?? '/var/www/iskra') . "/files/$cid/$name";
+    if (!is_file($p)) return 'Файл не найден: ' . $name;
+    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+    $cmds = ['py' => '/usr/bin/python3', 'js' => '/usr/bin/node'];
+    if (!isset($cmds[$ext])) return 'Запускать можно только .py и .js';
+    $cmd = 'timeout 10 ' . $cmds[$ext] . ' ' . escapeshellarg($p) . ' 2>&1';
+    $out = (string)@shell_exec($cmd);
+    $out = mb_substr($out, 0, 5000);
+    return trim($out) === '' ? '(нет вывода)' : $out;
+}
+
+function run_request(string $q): ?string {
+    if (preg_match('~^\s*(?:запусти|выполни|run)\s+([A-Za-z0-9._\-]+)~iu', $q, $m)) return $m[1];
+    return null;
+}
+
 function tts_speak(string $text): ?string {
     if (!defined('TTS_URL') || TTS_URL === '') return null;
     $ch = curl_init(TTS_URL . '/speak');
@@ -409,6 +430,13 @@ switch ($action) {
     if (is_file($p)) @unlink($p);
     j(['ok' => true]);
 
+  case 'run_file':
+    $chat = trim($in['chat'] ?? ''); $name = basename($in['name'] ?? '');
+    if (!own_chat($db, $me['id'], $chat)) { http_response_code(403); j(['err' => 'no']); }
+    $out = run_chat_file($chat, $name);
+    log_action($db, $me['id'], $chat, 'run', $name);
+    j(['out' => $out]);
+
   case 'video_status':
     j(video_status_fetch($_GET['job'] ?? ''));
 
@@ -539,6 +567,10 @@ switch ($action) {
         else $reply = 'Генерация видео не запущена. Проверь сервис video (Wan2.1) и VIDEO_URL в конфиге.';
     } elseif ($mode === 'subs') {
         $reply = 'Субтитры делаются к видео: нужно загрузить видео, распознать речь и наложить текст. Это отдельная настройка — сделаю вместе с видео.';
+    } elseif (($rf = run_request($text)) !== null) {
+        $out = run_chat_file($chat, $rf);
+        log_action($db, $me['id'], $chat, 'run', $rf);
+        $reply = 'Запустила `' . $rf . "`:\n\n```\n" . $out . "\n```";
     } elseif ($mode === 'ideas') {
         $topic = $text !== '' ? $text : 'разное';
         $reply = ai_reply('Придумай идеи по теме/платформе: ' . $topic,

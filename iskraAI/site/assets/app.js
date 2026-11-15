@@ -352,6 +352,13 @@ async function loadFiles(){
     const el = document.createElement('div'); el.className = 'rb-file';
     el.innerHTML = '<span class="n">'+(f.img?'🖼':'📄')+' '+esc(f.name)+'</span><span class="sz">'+human(f.size)+'</span>';
     el.onclick = () => f.img ? openLightbox(f.url) : openFile(f.name);
+    if (/\.(py|js)$/i.test(f.name)) {
+      const run = document.createElement('button'); run.className='rbrun'; run.textContent='▶'; run.title='Запустить';
+      run.onclick = async e => { e.stopPropagation(); run.disabled=true; run.textContent='…';
+        const r = await api('run_file', {chat:current, name:f.name}); run.disabled=false; run.textContent='▶';
+        addMsg('ai', 'Запустила `'+f.name+'`:\n\n```\n'+(r.out||'')+'\n```'); };
+      el.appendChild(run);
+    }
     const del = document.createElement('button'); del.className='rbdel'; del.textContent='×';
     del.onclick = async e => { e.stopPropagation(); if(!confirm('Удалить '+f.name+'?'))return;
       await api('file_del', {chat:current, name:f.name}); loadFiles(); };

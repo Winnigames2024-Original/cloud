@@ -38,7 +38,7 @@ endif;
 <meta name="apple-mobile-web-app-title" content="Искра">
 <link rel="apple-touch-icon" href="/assets/icon-180.png">
 <link rel="icon" href="/assets/icon-192.png">
-<link rel="stylesheet" href="/assets/app.css?v=20">
+<link rel="stylesheet" href="/assets/app.css?v=21">
 </head>
 <body>
 <?php if (!empty($_SESSION['imp_from'])): ?>
@@ -176,6 +176,6 @@ endif;
   </div>
 </div>
 
-<script src="/assets/app.js?v=20"></script>
+<script src="/assets/app.js?v=21"></script>
 </body>
 </html>

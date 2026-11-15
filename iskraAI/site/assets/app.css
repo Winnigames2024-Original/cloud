@@ -227,3 +227,6 @@ button,.chat-item,.rb-file,.icon,a{-webkit-tap-highlight-color:transparent}
 
 .vid-len{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 2px 10px}
 .vid-len .vid-note{color:var(--dim);font-size:12px}
+
+.rbrun{background:transparent;border:1px solid var(--line);color:var(--dim);width:auto;margin:0 4px 0 0;padding:1px 7px;border-radius:6px;font-size:12px;cursor:pointer}
+.rbrun:hover{border-color:#7ee787;color:#7ee787}
